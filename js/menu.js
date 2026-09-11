@@ -534,7 +534,7 @@ function convertirEventosVSlice(eventos, stepDuration) {
     return Object.entries(eventos || {}).map(([row, evento]) => {
         const fila = parseInt(row, 10);
         if (!Number.isInteger(fila) || !evento) return null;
-        const targetToChar = { opponent: 0, player: 1, gf: 2 };
+        const targetToChar = { opponent: 1, player: 0, gf: 2 };
         return {
             "t": fila * stepDuration * 1000,
             "e": "FocusCamera",
