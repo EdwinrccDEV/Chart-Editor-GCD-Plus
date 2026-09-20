@@ -1,0 +1,50 @@
+Chart Editor GCD Plus
+=====================
+
+This repository contains an unofficial fork of the original Chart Editor GCD
+project.
+
+------------------------------------------------------------------------
+Original work — NOT covered by this repository's MIT license
+------------------------------------------------------------------------
+
+  Project : Chart Editor GCD
+  Author  : GAMERCB
+  Source  : https://github.com/GamerCB2026/Chart-Editor-GCD
+
+  All original code, artwork, and other assets of Chart Editor GCD remain
+  © GAMERCB. The original project does not ship an open-source license, so
+  all rights are reserved by its author.
+
+  This fork is published as an unofficial, community-driven project for
+  non-commercial, community use within the Friday Night Funkin' community,
+  with visible credit to the original author. If you are GAMERCB and want
+  this distribution changed or removed, please open an issue in this
+  repository and it will be addressed.
+
+------------------------------------------------------------------------
+Fork contributions — MIT licensed
+------------------------------------------------------------------------
+
+  Copyright (c) 2026 Edwin (EdwinrccDEV) and Chart Editor GCD Plus
+  contributors
+
+  Modifications, additions, and new contributions made in this fork
+  (including UI restyling, quality-of-life features, and code cleanup) are
+  licensed under the MIT License. See the LICENSE file in this repository.
+
+------------------------------------------------------------------------
+Upstream-first policy
+------------------------------------------------------------------------
+
+Improvements developed here — especially quality-of-life features — are
+intended to be contributed back to the original Chart Editor GCD project
+whenever the original author accepts them.
+
+------------------------------------------------------------------------
+Third-party assets
+------------------------------------------------------------------------
+
+Friday Night Funkin' and its related assets belong to their respective
+owners (Funkin' Crew / newgrounds artists). They are not part of this
+repository's licensing.

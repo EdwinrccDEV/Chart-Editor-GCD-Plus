@@ -2,6 +2,9 @@
 
 ### A community-driven Friday Night Funkin' chart editor for mobile.
 
+> [!WARNING]
+> **Unofficial fork.** This is *not* the official Chart Editor GCD. This project is an unofficial, community-driven fork of [Chart Editor GCD](https://github.com/GamerCB2026/Chart-Editor-GCD) by **GAMERCB**. All credit for the original project goes to its author — see [NOTICE](NOTICE) and [LICENSE](LICENSE).
+
 Chart Editor GCD Plus is a mobile-friendly chart editor project based on the original Chart Editor GCD.
 
 The project aims to make chart creation more accessible on mobile devices, with a focus on usability, multi-engine compatibility, and a smoother charting experience.
@@ -36,6 +39,15 @@ More improvements and compatibility updates are planned as development continues
 - Expand compatibility with different Friday Night Funkin' engines.
 - Make the codebase cleaner, more modular, and easier to maintain.
 - Introduce useful quality-of-life features for chart creators.
+- Contribute quality-of-life improvements **upstream** to the original Chart Editor GCD whenever the original author accepts them. This fork is meant to complement the original project, not replace it.
+
+---
+
+## License
+
+Fork contributions (this repository's changes and additions) are released under the **MIT License** — see [LICENSE](LICENSE).
+
+The original Chart Editor GCD is **© GAMERCB**, all rights reserved — the original project ships no open-source license, so its code is *not* covered by this repository's MIT license. Full attribution and details in [NOTICE](NOTICE).
 
 ---
 
