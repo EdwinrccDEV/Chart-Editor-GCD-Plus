@@ -169,7 +169,21 @@ function actualizarAlturaScroll() {
         canvas.height = H;
         canvas.style.width = 360 * globalZoomFactor + "px";
     }
+    programarRenderNotas();
 }
+
+// ============================================================================
+// GRILLA VIRTUALIZADA
+// Las celdas son simples <div> de fondo: se crean solo cerca del viewport
+// (ventana con margen) y se reciclan cuando quedan lejos. La interacción se
+// maneja por delegación de eventos en el contenedor, así que no hay un
+// listener por celda. Las NOTAS no viven en el DOM: se dibujan en un canvas
+// superpuesto (ver RENDER DE NOTAS EN CANVAS).
+// ============================================================================
+
+let grillaDOM = { filas: 0, celdas: {}, celdasEvento: {} };
+const VENTANA_CELDAS = 24;   // filas extra creadas alrededor del viewport
+const VENTANA_RECICLAJE = 60; // filas de distancia a partir de las cuales se recicla una celda
 
 function generarEstructuraGrilla(filas) {
     const jugador = document.getElementById("cols-jugador");
@@ -178,48 +192,336 @@ function generarEstructuraGrilla(filas) {
     jugador.innerHTML = "";
     oponente.innerHTML = "";
     events.innerHTML = "";
-    
-    for (const c of CARRILES_JUGADOR) {
-        const col = document.createElement("div");
-        col.className = "grid-column";
-        for (let f = 0; f < filas; f++) {
-            const cell = document.createElement("div");
-            cell.className = "grid-cell";
-            if (f % 4 === 0) cell.classList.add("beat-line");
-            if (f % 16 === 0) cell.classList.add("measure-line");
-            cell.id = `cell-${f}-${c}`;
-            cell.onclick = (e) => manejarClickCelda(e, f, c, cell);
-            col.appendChild(cell);
+
+    grillaDOM = { filas: filas, celdas: {}, celdasEvento: {} };
+
+    // Las mitades solo definen el ancho del contenedor (spacers); las celdas
+    // se colocan ABSOLUTAS sobre el contenedor en su coordenada lógica, así
+    // que su posición no depende del orden de creación ni del empaquetado.
+    jugador.style.width = 4 * 45 + "px";
+    oponente.style.width = 4 * 45 + "px";
+    events.style.width = 45 + "px";
+
+    const cont = document.getElementById("grilla-dinamica-container");
+    if (cont) {
+        // Limpia celdas/separadores del chart anterior (viven en el contenedor,
+        // no en las mitades que acabamos de vaciar).
+        cont.querySelectorAll(".grid-cell").forEach((n) => n.remove());
+        cont.style.height = filas * alturaCelda + "px";
+        // Separadores verticales entre las 9 columnas (8 líneas, no una por celda).
+        for (let i = 0; i < 8; i++) {
+            const sep = document.createElement("div");
+            sep.className = "grid-cell cell-sep";
+            sep.style.cssText = `top:0;height:100%;left:${i * 45 + 45}px;width:0;pointer-events:none;`;
+            cont.appendChild(sep);
         }
-        jugador.appendChild(col);
+        // Delegación de clicks: un solo listener para toda la grilla.
+        if (!cont.dataset.delegado) {
+            cont.dataset.delegado = "1";
+            cont.addEventListener("click", delegarClickGrilla);
+        }
     }
-    for (const c of CARRILES_OPONENTE) {
-        const col = document.createElement("div");
-        col.className = "grid-column";
-        for (let f = 0; f < filas; f++) {
-            const cell = document.createElement("div");
-            cell.className = "grid-cell";
-            if (f % 4 === 0) cell.classList.add("beat-line");
-            if (f % 16 === 0) cell.classList.add("measure-line");
-            cell.id = `cell-${f}-${c}`;
-            cell.onclick = (e) => manejarClickCelda(e, f, c, cell);
-            col.appendChild(cell);
-        }
-        oponente.appendChild(col);
+}
+
+// Posición visual de una columna lógica: el layout es [oponente 4-7][jugador 0-3][eventos].
+function posVisualDeCol(c) { return c < 4 ? c + 4 : c - 4; }
+
+function crearClaseCelda(f, c) {
+    let cls = "grid-cell";
+    if (f % 4 === 0) cls += " beat-line";
+    if (f % 16 === 0) cls += " measure-line";
+    if ((c % 4 + f) % 2 === 1) cls += " cell-alt";
+    return cls;
+}
+
+function asegurarCelda(f, c) {
+    const key = f + "-" + c;
+    const existente = grillaDOM.celdas[key];
+    if (existente && existente.isConnected) return existente;
+    const cont = document.getElementById("grilla-dinamica-container");
+    if (!cont) return null;
+    const cell = document.createElement("div");
+    cell.className = crearClaseCelda(f, c);
+    cell.style.cssText = `position:absolute;top:${f * alturaCelda}px;left:${posVisualDeCol(c) * 45}px;`;
+    cell.dataset.f = f;
+    cell.dataset.c = c;
+    cont.appendChild(cell);
+    grillaDOM.celdas[key] = cell;
+    return cell;
+}
+
+function asegurarCeldaEvento(f) {
+    const existente = grillaDOM.celdasEvento[f];
+    if (existente && existente.isConnected) return existente;
+    const cont = document.getElementById("grilla-dinamica-container");
+    if (!cont) return null;
+    const cell = document.createElement("div");
+    cell.className = crearClaseCelda(f, 8) + " cell-evento";
+    cell.style.cssText = `position:absolute;top:${f * alturaCelda}px;left:${8 * 45}px;`;
+    cell.dataset.f = f;
+    cell.dataset.evento = "1";
+    cont.appendChild(cell);
+    grillaDOM.celdasEvento[f] = cell;
+    // Si la fila ya tiene evento, restaura el icono al (re)crear la celda.
+    if (currentChartData?.events?.[f]) {
+        const icon = document.createElement("img");
+        icon.className = "event-note-icon";
+        icon.src = "eventassets/FocusCamera.png";
+        icon.alt = "Focus Camera";
+        cell.appendChild(icon);
+    }
+    return cell;
+}
+
+// Crea las celdas visibles (con margen) y recicla las que quedaron lejos.
+function sincronizarCeldasVisibles() {
+    const filas = grillaDOM.filas;
+    if (!filas) return;
+    const rango = rangoFilasVisibles();
+    if (!rango) return;
+    const desde = Math.max(0, rango.desde - VENTANA_CELDAS);
+    const hasta = Math.min(filas - 1, rango.hasta + VENTANA_CELDAS);
+
+    for (let f = desde; f <= hasta; f++) {
+        for (let c = 0; c < 8; c++) asegurarCelda(f, c);
+        asegurarCeldaEvento(f);
     }
 
-    const eventsColumn = document.createElement("div");
-    eventsColumn.className = "grid-column events-column";
-    for (let f = 0; f < filas; f++) {
-        const cell = document.createElement("div");
-        cell.className = "grid-cell";
-        cell.id = `event-cell-${f}`;
-        cell.onclick = (e) => manejarClickCeldaEvento(e, f, cell);
-        if (f % 4 === 0) cell.classList.add("beat-line");
-        if (f % 16 === 0) cell.classList.add("measure-line");
-        eventsColumn.appendChild(cell);
+    const limiteInf = rango.desde - VENTANA_RECICLAJE;
+    const limiteSup = rango.hasta + VENTANA_RECICLAJE;
+    for (const key in grillaDOM.celdas) {
+        const f = grillaDOM.celdas[key].dataset.f | 0;
+        if (f < limiteInf || f > limiteSup) {
+            grillaDOM.celdas[key].remove();
+            delete grillaDOM.celdas[key];
+        }
     }
-    events.appendChild(eventsColumn);
+    for (const f in grillaDOM.celdasEvento) {
+        if (f < limiteInf || f > limiteSup) {
+            grillaDOM.celdasEvento[f].remove();
+            delete grillaDOM.celdasEvento[f];
+        }
+    }
+}
+
+// Delegación: un solo listener para toda la grilla en lugar de uno por celda.
+function delegarClickGrilla(e) {
+    const cell = e.target.closest(".grid-cell");
+    if (!cell || !currentChartData) return;
+    if (cell.dataset.evento) {
+        manejarClickCeldaEvento(e, parseInt(cell.dataset.f, 10), cell);
+    } else {
+        manejarClickCelda(e, parseInt(cell.dataset.f, 10), parseInt(cell.dataset.c, 10), cell);
+    }
+}
+
+// ============================================================================
+// RENDER DE NOTAS EN CANVAS (virtualizado)
+// Las notas y sustains se dibujan en un canvas superpuesto a la grilla usando
+// únicamente las notas dentro del viewport. El índice ordenado permite
+// encontrarlas con búsqueda binaria en O(log N) sin recorrer todo el chart.
+// ============================================================================
+
+let notasCanvas = null;
+let notasCanvasCtx = null;
+let notasIdx = null;         // [{fila, col, len}] ordenado por fila
+let notasDirty = true;       // el índice hay que reconstruirlo
+let renderNotasPendiente = false;
+const ESCALA_CALIDAD = 2;    // render a 2x para que no se vea borroso con zoom
+const COLORES_NOTA = ["#C24B99", "#00FFFF", "#12FA05", "#F9393F"];
+const notasImgCache = {};
+
+function imagenNota(col) {
+    const tipo = col % 4;
+    if (!notasImgCache[tipo]) {
+        const img = new Image();
+        img.src = ["noteassets/purple0000.png", "noteassets/blue0000.png", "noteassets/green0000.png", "noteassets/red0000.png"][tipo];
+        notasImgCache[tipo] = img;
+    }
+    return notasImgCache[tipo];
+}
+
+function construirIndiceNotas() {
+    notasIdx = [];
+    const notes = currentChartData && currentChartData.notes;
+    if (notes) {
+        for (const key in notes) {
+            const parts = key.split("-");
+            const fila = parseInt(parts[0], 10);
+            const col = parseInt(parts[1], 10);
+            if (Number.isNaN(fila) || Number.isNaN(col)) continue;
+            notasIdx.push({ fila: fila, col: col, len: Math.max(0, notes[key].len | 0) });
+        }
+        notasIdx.sort((a, b) => a.fila - b.fila || a.col - b.col);
+    }
+    notasDirty = false;
+}
+
+function limiteInferiorFila(fila) {
+    let low = 0, high = notasIdx.length;
+    while (low < high) {
+        const mid = (low + high) >>> 1;
+        if (notasIdx[mid].fila < fila) low = mid + 1;
+        else high = mid;
+    }
+    return low;
+}
+
+function rangoFilasVisibles() {
+    const ws = document.getElementById("scroll-workspace");
+    if (!ws || ws.clientHeight === 0) return null;
+    const zoom = globalZoomFactor || 1;
+    // La grilla arranca a H/2 del viewport (gridTop), no en su borde
+    // superior: sin ese offset el rango sale desplazado ~12 filas.
+    const H = ws.clientHeight;
+    const top = (ws.scrollTop - H / 2) / zoom;
+    const alto = H / zoom;
+    return {
+        desde: Math.floor(top / alturaCelda) - 1,
+        hasta: Math.ceil((top + alto) / alturaCelda) + 1
+    };
+}
+
+// El canvas de notas es del tamaño del VIEWPORT (capa fija sobre el
+// workspace), no de la grilla completa: así nunca excede los límites de
+// canvas del navegador y el costo de memoria/redibujado es constante.
+function asegurarCanvasNotas() {
+    const ws = document.getElementById("scroll-workspace");
+    const columna = document.querySelector(".editor-center-column");
+    if (!ws || !columna) return;
+    if (!notasCanvas) {
+        notasCanvas = document.createElement("canvas");
+        notasCanvas.id = "notas-canvas";
+        notasCanvas.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;z-index:3;pointer-events:none;";
+        columna.appendChild(notasCanvas);
+        notasCanvasCtx = notasCanvas.getContext("2d");
+    }
+    const w = ws.clientWidth, h = ws.clientHeight;
+    if (w && h && (notasCanvas.width !== w * ESCALA_CALIDAD || notasCanvas.height !== h * ESCALA_CALIDAD)) {
+        notasCanvas.width = w * ESCALA_CALIDAD;
+        notasCanvas.height = h * ESCALA_CALIDAD;
+    }
+}
+
+// LECTURA de posición grilla→canvas. Llamar SIEMPRE antes de mutar el DOM:
+// leer tras una mutación fuerza un recálculo de layout carísimo en charts
+// largos (scroll-inner puede medir cientos de miles de px).
+function medirPosicionNotas() {
+    if (!notasCanvas) return null;
+    const cont = document.getElementById("grilla-dinamica-container");
+    if (!cont) return null;
+    const contRect = cont.getBoundingClientRect();
+    const canvasRect = notasCanvas.getBoundingClientRect();
+    const z = globalZoomFactor || 1;
+    return {
+        offsetX: contRect.left - canvasRect.left + 2 * z, // +2 = borde del contenedor
+        offsetY: contRect.top - canvasRect.top,
+        wsH: notasCanvas.height / ESCALA_CALIDAD
+    };
+}
+
+// Todas las pinturas de notas pasan por aquí: varios cambios en el mismo
+// frame se agrupan en un solo redibujado (rAF + dirty flag). El orden dentro
+// del callback importa: LECTURAS (scroll + rects) → MUTACIONES (celdas) →
+// dibujo puro en canvas. Así nunca se lee layout recién mutado.
+// Además hay un respaldo con setTimeout(50ms) por si el entorno nunca
+// dispara rAF (webviews sin componer): en navegadores normales el rAF llega
+// primero y el respaldo no hace nada.
+function programarRenderNotas() {
+    if (renderNotasPendiente) return;
+    renderNotasPendiente = true;
+    const ejecutar = () => {
+        if (!renderNotasPendiente) return; // el rAF ya lo hizo
+        renderNotasPendiente = false;
+        const pos = medirPosicionNotas();
+        sincronizarCeldasVisibles();
+        dibujarNotas(null, pos);
+    };
+    requestAnimationFrame(ejecutar);
+    setTimeout(ejecutar, 50);
+}
+
+function pintarNotasActuales() {
+    notasDirty = true;
+    asegurarCanvasNotas();
+    sincronizarCeldasVisibles();
+    programarRenderNotas();
+}
+
+function dibujarNotas(scrollTopPx, pos) {
+    if (!currentChartData) return;
+    asegurarCanvasNotas();
+    if (!notasCanvas || grillaDOM.filas === 0) return;
+    const z = globalZoomFactor || 1;
+    const ctx = notasCanvasCtx;
+    const W = notasCanvas.width / ESCALA_CALIDAD;
+    const H = notasCanvas.height / ESCALA_CALIDAD;
+
+    // Mapeo fila/col → píxeles del viewport. Si no llegó `pos` (llamada
+    // directa), se mide aquí (una lectura de layout).
+    if (!pos) pos = medirPosicionNotas();
+    if (!pos) return;
+    // pos.offsetY ya incluye gridTop y el scroll actual: de ahí se deduce
+    // exactamente qué filas caen dentro del canvas.
+    const desde = Math.max(0, Math.floor(-pos.offsetY / (alturaCelda * z)) - 1);
+    const hasta = Math.min(grillaDOM.filas - 1, Math.ceil((-pos.offsetY + H) / (alturaCelda * z)) + 1);
+
+    ctx.setTransform(ESCALA_CALIDAD, 0, 0, ESCALA_CALIDAD, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    if (hasta < desde) return;
+    if (!notasIdx || notasDirty) construirIndiceNotas();
+
+    const offsetX = pos.offsetX;
+    const offsetY = pos.offsetY;
+    const yDeFila = (fila) => offsetY + fila * alturaCelda * z;
+    const xDeCol = (col, offset) => offsetX + posVisualDeCol(col) * 45 * z + offset * z;
+
+    let i = limiteInferiorFila(desde);
+    // Los sustains que empiezan antes del viewport pero terminan dentro
+    // también deben dibujarse: se retrocede mientras alcancen la ventana.
+    while (i > 0 && notasIdx[i - 1].fila + notasIdx[i - 1].len >= desde) i--;
+
+    for (; i < notasIdx.length && notasIdx[i].fila <= hasta; i++) {
+        const n = notasIdx[i];
+        if (n.len > 0) {
+            // Solo la parte del sustain dentro del viewport se dibuja.
+            const filaTop = Math.max(n.fila, desde);
+            const filaBottom = Math.min(n.fila + n.len, hasta + 1);
+            const cuerpoTop = yDeFila(filaTop) + 22 * z;
+            const cuerpoBottom = yDeFila(filaBottom);
+            if (cuerpoBottom > cuerpoTop) {
+                ctx.fillStyle = COLORES_NOTA[n.col % 4];
+                ctx.globalAlpha = 0.9;
+                ctx.fillRect(xDeCol(n.col, 14.5), cuerpoTop, 16 * z, cuerpoBottom - cuerpoTop);
+                ctx.globalAlpha = 1;
+            }
+        }
+        const x = xDeCol(n.col, 2.5);
+        const y = yDeFila(n.fila) + 2.5 * z;
+        const tam = 40 * z;
+        const img = imagenNota(n.col);
+        if (img.complete && img.naturalWidth) {
+            ctx.drawImage(img, x, y, tam, tam);
+        } else {
+            ctx.fillStyle = COLORES_NOTA[n.col % 4];
+            ctx.beginPath();
+            ctx.arc(x + tam / 2, y + tam / 2, 17 * z, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+}
+
+function pintarEventosActuales() {
+    const events = currentChartData && currentChartData.events ? currentChartData.events : {};
+    const rango = rangoFilasVisibles();
+    if (!rango) return;
+    const desde = Math.max(0, rango.desde - VENTANA_CELDAS);
+    const hasta = Math.min(grillaDOM.filas - 1, rango.hasta + VENTANA_CELDAS);
+    for (const row in events) {
+        const f = parseInt(row, 10);
+        if (Number.isNaN(f)) continue;
+        if (f >= desde && f <= hasta) asegurarCeldaEvento(f);
+    }
 }
 
 function manejarClickCeldaEvento(e, f, cell) {
@@ -246,18 +548,20 @@ function manejarClickCeldaEvento(e, f, cell) {
 }
 
 function seleccionarEvento(f) {
-    const anterior = eventoSeleccionado === null ? null : document.getElementById(`event-cell-${eventoSeleccionado}`);
-    if (anterior) anterior.classList.remove("event-selected");
+    if (eventoSeleccionado !== null) {
+        const anterior = grillaDOM.celdasEvento[eventoSeleccionado];
+        if (anterior) anterior.classList.remove("event-selected");
+    }
 
     eventoSeleccionado = Number(f);
-    const cell = document.getElementById(`event-cell-${eventoSeleccionado}`);
+    const cell = grillaDOM.celdasEvento[eventoSeleccionado];
     if (cell) cell.classList.add("event-selected");
     actualizarVentanaEvento();
 }
 
 function deseleccionarEventoActual() {
     if (eventoSeleccionado !== null) {
-        const cell = document.getElementById(`event-cell-${eventoSeleccionado}`);
+        const cell = grillaDOM.celdasEvento[eventoSeleccionado];
         if (cell) cell.classList.remove("event-selected");
     }
     eventoSeleccionado = null;
@@ -266,7 +570,7 @@ function deseleccionarEventoActual() {
 
 function eliminarEventoSeleccionado() {
     if (eventoSeleccionado === null || !currentChartData?.events?.[eventoSeleccionado]) return;
-    const cell = document.getElementById(`event-cell-${eventoSeleccionado}`);
+    const cell = grillaDOM.celdasEvento[eventoSeleccionado];
     if (cell) {
         cell.classList.remove("event-selected");
         cell.querySelector(".event-note-icon")?.remove();
@@ -321,60 +625,45 @@ function actualizarConfiguracionEvento() {
 }
 
 function deseleccionarNotaActual() {
-    if (notaSeleccionada) {
-        const prevCell = document.getElementById(notaSeleccionada);
-        if (prevCell) prevCell.classList.remove("selected-note");
-        notaSeleccionada = null;
-    }
+    if (!notaSeleccionada) return;
+    const cell = grillaDOM.celdas[notaSeleccionada];
+    if (cell) cell.classList.remove("selected-note");
+    notaSeleccionada = null;
 }
 
 function manejarClickCelda(e, f, c, cell) {
     e.stopPropagation();
     deseleccionarEventoActual();
-    const id = `cell-${f}-${c}`;
     const key = `${f}-${c}`;
     if (currentChartData.notes[key]) {
-        if (notaSeleccionada === id) {
+        if (notaSeleccionada === key) {
             delete currentChartData.notes[key];
-            const circles = cell.querySelectorAll(".grid-note-circle, .sustain-line");
-            circles.forEach((c) => c.remove());
             cell.classList.remove("selected-note");
             notaSeleccionada = null;
+            notasDirty = true;
+            programarRenderNotas();
         } else {
             deseleccionarNotaActual();
-            notaSeleccionada = id;
+            notaSeleccionada = key;
             cell.classList.add("selected-note");
         }
     } else {
         deseleccionarNotaActual();
         currentChartData.notes[key] = { len: 0 };
-        const circulo = document.createElement("div");
-        circulo.className = `grid-note-circle note-col-${c % 4}`;
-        cell.appendChild(circulo);
-        notaSeleccionada = id;
+        notaSeleccionada = key;
         cell.classList.add("selected-note");
+        notasDirty = true;
+        programarRenderNotas();
     }
 }
 
 function ajustarLongitudNota(dir) {
     if (!notaSeleccionada) return;
-    const cell = document.getElementById(notaSeleccionada);
-    if (!cell) return;
-    const parts = notaSeleccionada.replace("cell-", "").split("-");
-    const f = parseInt(parts[0]), c = parseInt(parts[1]), key = `${f}-${c}`;
-    if (!currentChartData.notes[key]) return;
-    
-    let len = Math.max(0, (currentChartData.notes[key].len || 0) + dir);
-    currentChartData.notes[key].len = len;
-    
-    let line = cell.querySelector(".sustain-line");
-    if (!line) {
-        line = document.createElement("div");
-        line.className = "sustain-line";
-        cell.appendChild(line);
-    }
-    line.style.height = len * alturaCelda + "px";
-    if (len === 0) line.remove();
+    const nota = currentChartData.notes[notaSeleccionada];
+    if (!nota) return;
+    nota.len = Math.max(0, (nota.len || 0) + dir);
+    notasDirty = true;
+    programarRenderNotas();
 }
 
 function sincronizarPistasAudio(tiempo) {
@@ -426,9 +715,32 @@ function reposicionarScroll() {
     const workspace = document.getElementById('scroll-workspace');
     ignorarSiguienteScroll = true; 
     workspace.scrollTop = (currentStep * alturaCelda * globalZoomFactor);
+    sincronizarCeldasVisibles();
+    programarRenderNotas();
     
     // CORRECCIÓN: Volvemos a pasar el tiempo exacto
     actualizarWaveforms(tiempoActual); 
+}
+
+// Hitsounds: en vez de recorrer TODAS las notas de cada frame, se busca en el
+// índice ordenado con búsqueda binaria y solo se examina el rango del frame.
+function hayNotaEnRango(t0Seg, t1Seg) {
+    if (!notasIdx || notasDirty) construirIndiceNotas();
+    if (!notasIdx.length) return false;
+    const hitP = document.getElementById("hit-player")?.checked;
+    const hitE = document.getElementById("hit-enemy")?.checked;
+    if (!hitP && !hitE) return false;
+
+    const stepMs = (60 / (currentChartData.bpm || 120)) / 4 * 1000;
+    const fila0 = Math.max(0, Math.floor((t0Seg * 1000) / stepMs));
+    const fila1 = Math.ceil((t1Seg * 1000) / stepMs);
+
+    let i = limiteInferiorFila(fila0);
+    for (; i < notasIdx.length && notasIdx[i].fila <= fila1; i++) {
+        const col = notasIdx[i].col;
+        if ((col < 4 && hitP) || (col >= 4 && hitE)) return true;
+    }
+    return false;
 }
 
 function actualizarPlaybackFiel() {
@@ -437,24 +749,10 @@ function actualizarPlaybackFiel() {
     if (isPlaying) {
         reposicionarScroll();
         if (lastHitTime >= 0 && currentChartData) {
-            const stepDuration = 60 / currentChartData.bpm / 4;
-            let sonarHitsoundFrame = false;
             const latencia = 0; 
-            const tiempoConLatencia = tiempoActual + latencia;
-            const lastHitConLatencia = lastHitTime + latencia;
-            
-            for (let key in currentChartData.notes) {
-                const parts = key.split("-");
-                const f = parseInt(parts[0]);
-                const c = parseInt(parts[1]);
-                const noteTime = f * stepDuration;
-                if (noteTime > lastHitConLatencia && noteTime <= tiempoConLatencia) {
-                    const hitP = document.getElementById("hit-player") && document.getElementById("hit-player").checked && c < 4;
-                    const hitE = document.getElementById("hit-enemy") && document.getElementById("hit-enemy").checked && c >= 4;
-                    if (hitE || hitP) sonarHitsoundFrame = true;
-                }
-            }
-            if (sonarHitsoundFrame) playHitsound();
+            const t0 = lastHitTime + latencia;
+            const t1 = tiempoActual + latencia;
+            if (t1 > t0 && hayNotaEnRango(t0, t1)) playHitsound();
         }
         lastHitTime = tiempoActual;
     }
@@ -471,8 +769,13 @@ function actualizarPlaybackFiel() {
 }
 
 function manejarScrollManual() {
-    if (!audioInst || !currentChartData) return;
-    if (ignorarSiguienteScroll) { ignorarSiguienteScroll = false; return; }
+    if (!currentChartData) return;
+    // El redibujado de notas/celdas va primero: aplica a todo scroll,
+    // haya o no audio cargado.
+    if (ignorarSiguienteScroll) { ignorarSiguienteScroll = false; }
+    sincronizarCeldasVisibles();
+    programarRenderNotas();
+    if (!audioInst) return;
     if (isPlaying) togglePlayPause(); 
     
     const workspace = document.getElementById('scroll-workspace');
@@ -487,6 +790,7 @@ function manejarScrollManual() {
     
     lastHitTime = nuevoTiempo; 
     actualizarContadorDeTiempo(nuevoTiempo);
+    programarRenderNotas();
     
     // CORRECCIÓN: Volvemos a pasar el tiempo exacto
     actualizarWaveforms(nuevoTiempo); 
@@ -508,4 +812,9 @@ window.addEventListener("keydown", function (e) {
         e.preventDefault();
         togglePlayPause();
     }
+});
+
+// Al cambiar el tamaño de la ventana, redimensionar el canvas y redibujar.
+window.addEventListener("resize", () => {
+    programarRenderNotas();
 });

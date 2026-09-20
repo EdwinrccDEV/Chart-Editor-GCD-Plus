@@ -82,45 +82,9 @@ function calcularFilasDesdeDuracion(duracion, bpm) {
 	const totalSteps = Math.ceil(duracion / ((60 / bpm) / 4));
 	return Math.max(16, Math.ceil(totalSteps / 16) * 16);
 }
+// pintarNotasActuales/pintarEventosActuales viven ahora en js/charter.js (render por canvas)
 
-function pintarNotasActuales() {
-	const notes = currentChartData && currentChartData.notes ? currentChartData.notes : {};
-	for (const key in notes) {
-		const parts = key.split("-");
-		const f = parseInt(parts[0], 10);
-		const c = parseInt(parts[1], 10);
-		if (Number.isNaN(f) || Number.isNaN(c)) continue;
-
-		const cell = document.getElementById(`cell-${f}-${c}`);
-		if (!cell) continue;
-		const circulo = document.createElement("div");
-		circulo.className = `grid-note-circle note-col-${c % 4}`;
-		cell.appendChild(circulo);
-
-		const len = Math.max(0, parseInt(notes[key].len, 10) || 0);
-		if (len > 0) {
-			const line = document.createElement("div");
-			line.className = "sustain-line";
-			line.style.height = len * alturaCelda + "px";
-			cell.appendChild(line);
-		}
-	}
-}
-
-function pintarEventosActuales() {
-	const events = currentChartData && currentChartData.events ? currentChartData.events : {};
-	for (const row in events) {
-		const cell = document.getElementById(`event-cell-${row}`);
-		if (!cell) continue;
-		const icon = document.createElement("img");
-		icon.className = "event-note-icon";
-		icon.src = "eventassets/FocusCamera.png";
-		icon.alt = "Focus Camera";
-		cell.appendChild(icon);
-	}
-}
-
-function agregarNotaImportada(notes, timeMs, lane, sustainMs, stepMs) {
+function agregarNotaImportada(notes, timeMs, lane, sustainMs, stepMs) {
 	const laneValue = parseInt(lane, 10);
 	const time = parseFloat(timeMs);
 	if (Number.isNaN(time) || Number.isNaN(laneValue) || laneValue < 0 || laneValue > 7) return 0;

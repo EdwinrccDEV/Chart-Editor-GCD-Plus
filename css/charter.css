@@ -117,10 +117,15 @@
 .events-column { border-right: none; }
 .grid-column { display: flex; flex-direction: column; width: 45px; border-right: 1px solid rgba(60,60,69,0.3); z-index: 5; }
 .grid-column:last-child { border-right: none; }
-.grid-cell { height: 45px; width: 45px; background-color: rgba(36, 36, 46, 0.6); border-top: 1px solid rgba(60, 60, 69, 0.4); position: relative; cursor: pointer; display: flex; justify-content: center; align-items: center; }
-.grid-column:nth-child(even) .grid-cell:nth-child(odd), .grid-column:nth-child(odd) .grid-cell:nth-child(even) { background-color: rgba(27, 27, 36, 0.6); }
-.events-side .grid-cell { cursor: pointer; background-color: rgba(52, 43, 60, 0.65); }
-.events-side .grid-cell:nth-child(odd) { background-color: rgba(40, 34, 48, 0.65); }
+/* Celdas absolutas: fila/col las posicionan (ver js/charter.js); el canvas de
+   notas va por debajo (z-index 3) y las celdas sobre él (z-index 5) para
+   seguir recibiendo los clicks. */
+.grid-cell { height: 45px; width: 45px; background-color: rgba(36, 36, 46, 0.6); border-top: 1px solid rgba(60, 60, 69, 0.4); position: absolute; cursor: pointer; display: flex; justify-content: center; align-items: center; }
+.grid-cell.cell-alt { background-color: rgba(27, 27, 36, 0.6); }
+.grid-cell.cell-evento { background-color: rgba(52, 43, 60, 0.65); }
+.grid-cell.cell-evento.cell-alt { background-color: rgba(40, 34, 48, 0.65); }
+.grid-cell.cell-sep { border-right: 1px solid rgba(60,60,69,0.3); }
+#cols-jugador, #cols-oponente, #cols-events { display: block; }
 .event-note-icon { width: 40px; height: 40px; object-fit: contain; image-rendering: pixelated; pointer-events: none; z-index: 6; }
 .events-side .grid-cell.event-selected { box-shadow: inset 0 0 0 3px #173d70 !important; background-color: rgba(23, 61, 112, 0.42) !important; z-index: 10; }
 
@@ -150,6 +155,8 @@
 .note-col-3~.sustain-line::after { background-image: url('../noteassets/red hold end0000.png'); }
 
 #playback-line { position: absolute; top: 50%; left: 0; transform: translateY(-50%); width: 100%; height: 4px; background-color: var(--accent); z-index: 100; pointer-events: none; margin: 0; }
+
+#scroll-workspace { overscroll-behavior: contain; }
 
 .control-panel-right { background-color: var(--bg-editor-panel); border-left: 2px solid var(--border-editor-panel); display: flex; flex-direction: column; padding: 20px 12px; gap: 10px; justify-content: center; z-index: 10; }
 .sustain-actions-wrapper { display: flex; flex-direction: column; gap: 15px; width: 100%; }
