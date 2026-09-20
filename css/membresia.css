@@ -1,0 +1,236 @@
+/* Gate de membresía — port de GamerCB2026/PruebaCEGCD, tema neutro de este fork */
+
+body.sm-locked #main-menu,
+body.sm-locked #editor-workspace {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+body.sm-locked .beta-badge {
+  opacity: 0.35;
+}
+
+#membresia-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: #12121a;
+  color: #fff;
+}
+
+body:not(.sm-locked) #membresia-gate {
+  display: none;
+}
+
+.membresia-gate-card {
+  width: 100%;
+  max-width: 420px;
+  background: #1a1824;
+  border: 1px solid #33313c;
+  border-radius: 4px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+  padding: 28px 24px 22px;
+  text-align: center;
+}
+
+.membresia-gate-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #c9506a;
+  border: 1px solid #c9506a;
+  border-radius: 3px;
+  padding: 3px 8px;
+  margin-bottom: 14px;
+  background: #161421;
+}
+
+#membresia-gate-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin: 0 0 10px;
+  line-height: 1.25;
+  color: #fff;
+}
+
+.membresia-gate-sub {
+  font-size: 13px;
+  color: #8d8a99;
+  margin: 0 0 16px;
+  line-height: 1.45;
+}
+
+.membresia-gate-sub strong {
+  color: #e8e6f0;
+}
+
+.membresia-status {
+  min-height: 1.4em;
+  font-size: 12px;
+  margin: 0 0 14px;
+  line-height: 1.4;
+  color: #8d8a99;
+}
+
+.membresia-status--info { color: #8d8a99; }
+.membresia-status--ok { color: #6ddea8; }
+.membresia-status--warn { color: #f0c36d; }
+.membresia-status--error { color: #ff7b9a; }
+
+.membresia-btn-dev {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  border: 1px dashed #665f80;
+  border-radius: 4px;
+  padding: 10px 12px;
+  background: transparent;
+  color: #cccbdf;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.membresia-btn-dev:hover {
+  border-color: #c9506a;
+  color: #fff;
+}
+
+.membresia-btn-dev[hidden] {
+  display: none !important;
+}
+
+.membresia-setup-help {
+  margin-top: 14px;
+  text-align: left;
+  font-size: 12px;
+  color: #8d8a99;
+  background: #161421;
+  border: 1px solid #33313c;
+  border-radius: 4px;
+  padding: 12px 14px;
+  line-height: 1.45;
+}
+
+.membresia-setup-help[hidden] {
+  display: none !important;
+}
+
+.membresia-setup-help ol {
+  margin: 8px 0 0 18px;
+  padding: 0;
+}
+
+.membresia-setup-help code {
+  font-size: 11px;
+  color: #c9506a;
+  background: #1e1c28;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.membresia-join-link {
+  display: inline-block;
+  margin-top: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #c9506a;
+  text-decoration: none;
+}
+
+.membresia-join-link:hover {
+  text-decoration: underline;
+}
+
+.membresia-gate-foot {
+  margin: 12px 0 0;
+  font-size: 11px;
+  color: #b4b0c4; /* >=4.5:1 sobre la tarjeta #1a1824 */
+}
+
+/* Chip de cuenta (menú principal) */
+.membresia-account-chip {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 10px 8px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: #161421;
+  border: 1px solid #33313c;
+  color: #e8e6f0;
+  font-size: 11px;
+  max-width: 100%;
+}
+
+.membresia-chip-logout {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 3px;
+  padding: 5px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  background: #33313c;
+  color: #cccbdf;
+}
+
+.membresia-chip-logout:hover {
+  background: #c9506a;
+  color: #fff;
+}
+
+@media (max-width: 520px) {
+  .membresia-gate-card {
+    padding: 22px 16px 18px;
+  }
+  #membresia-gate-title {
+    font-size: 1.15rem;
+  }
+}
+
+.membresia-channel-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #cccbdf;
+  margin-bottom: 6px;
+}
+
+.membresia-channel-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 4px;
+  border: 1px solid #33313c;
+  background: #110f1a;
+  color: #fff;
+  font-size: 13px;
+  font-family: monospace;
+}
+
+.membresia-channel-input:focus {
+  outline: none;
+  border-color: #c9506a;
+}
+
+.membresia-btn-verify {
+  width: 100%;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 4px;
+  background: #c9506a;
+  color: #fff;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.membresia-btn-verify:hover { filter: brightness(1.08); }
+.membresia-btn-verify:disabled { opacity: 0.6; cursor: not-allowed; }

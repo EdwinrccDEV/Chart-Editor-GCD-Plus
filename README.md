@@ -27,6 +27,7 @@ The project aims to make chart creation more accessible on mobile devices, with 
 - Planned support for multiple FNF engines.
 - UI improvements and quality-of-life enhancements.
 - Ongoing code cleanup and maintainability improvements.
+- Member access gate (key-based, ported from the upstream project: session tokens signed by a Cloudflare Worker; the access key itself never lives in the client code).
 
 > Features and compatibility may vary as development progresses.
 
