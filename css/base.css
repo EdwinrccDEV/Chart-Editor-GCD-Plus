@@ -6,19 +6,23 @@
 }
 
 :root {
-    --bg-menu: #2b2b36;
-    --bg-sidebar: #1a1a22;
-    --bg-card: #3d3d4f;
-    --bg-card-hover: #4a4a5e;
+    /* Paleta neutra — un solo acento */
+    --bg-menu: #26242c;
+    --bg-sidebar: #1a191f;
+    --bg-card: #2e2c35;
+    --bg-card-hover: #38363f;
     --text-main: #fff;
-    --text-sub: #a0a0b0;
-    --border-panel: #3d3d4f;
-    --bg-workspace: #4a287a;
-    --bg-editor-panel: rgba(22, 19, 31, 1);
-    --bg-editor-box: #252233;
-    --text-editor-title: #ff5b84;
-    --bg-editor-input: #161421;
-    --border-editor-panel: #332f42;
+    --text-sub: #9a97a6;
+    --border-panel: #38363f;
+    --bg-workspace: #141318;
+    --bg-editor-panel: #16151b;
+    --bg-editor-box: #211f28;
+    --text-editor-title: #8d8a99;
+    --bg-editor-input: #121116;
+    --border-editor-panel: #33313c;
+    --accent: #c9506a;
+    --accent-dark: #8f3f52;
+    --border-strong: #4a4757;
 }
 
 * {
@@ -43,10 +47,10 @@ body, html {
     right: 12px;
     z-index: 10000;
     padding: 4px 8px;
-    border: 1px solid #ff5b84;
-    border-radius: 4px;
-    background: #161421;
-    color: #ff5b84;
+    border: 1px solid #8d8a99;
+    border-radius: 3px;
+    background: var(--bg-editor-input);
+    color: #8d8a99;
     font-size: 11px;
     font-weight: 800;
     letter-spacing: 1px;
@@ -59,7 +63,7 @@ body, html {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: #1a1a22;
+    background-color: var(--bg-sidebar);
     display: none; 
     align-items: center;
     justify-content: center;

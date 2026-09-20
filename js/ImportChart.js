@@ -468,7 +468,7 @@ function renderizarProyectosArchivados() {
 				<i class="fa-solid fa-trash"></i>
 			</button>
 			<div class="folder-icon" onclick="cargarProyectoDesdeArchivo('${proy.id}')">
-				<i class="fa-solid fa-file-audio" style="color: #5b84ff;"></i>
+				<i class="fa-solid fa-file-audio" style="color: #c9c2d5;"></i>
 			</div>
 			<h3 onclick="cargarProyectoDesdeArchivo('${proy.id}')">${proy.songName}</h3>
 			<p style="font-size:11px; color:var(--text-sub);">BPM: ${proy.bpm}</p>`;
