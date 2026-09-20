@@ -770,9 +770,11 @@ function actualizarPlaybackFiel() {
 
 function manejarScrollManual() {
     if (!currentChartData) return;
-    // El redibujado de notas/celdas va primero: aplica a todo scroll,
-    // haya o no audio cargado.
-    if (ignorarSiguienteScroll) { ignorarSiguienteScroll = false; }
+    // Scroll programático (reposicionarScroll): se ignora por completo. El
+    // que lo originó ya repinta celdas/canvas; continuar aquí provocaría un
+    // seek del audio y, en playback, un toggle que lo pausaba al instante.
+    if (ignorarSiguienteScroll) { ignorarSiguienteScroll = false; return; }
+    // Scroll del usuario: el redibujado va primero, aplique o no audio.
     sincronizarCeldasVisibles();
     programarRenderNotas();
     if (!audioInst) return;
