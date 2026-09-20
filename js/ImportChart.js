@@ -14,8 +14,25 @@ function menuAbrirChart() {
 	mostrarModalImportacion();
 }
 
-function menuAbrirCodename() {
+// ===================
+// IMPORTAR CHART DE...
+// ===================
+
+function menuImportarChartDe() {
+	const wrapper = document.getElementById("menu-importar-wrapper");
+	if (wrapper) wrapper.classList.remove("open");
 	mostrarModalImportacion();
+}
+
+function importarChartDesdeMenu(formato) {
+	const wrapper = document.getElementById("menu-importar-wrapper");
+	if (wrapper) wrapper.classList.remove("open");
+	if (formato === "codename") {
+		cerrarModalImportacion();
+		document.getElementById("import-codename-input")?.click();
+		return;
+	}
+	alert("La importación de " + formato + " aún no está implementada.\n\nPor ahora solo está disponible la importación de charts de Codename Engine.");
 }
 
 function seleccionarImportacion(tipo) {
@@ -141,8 +158,76 @@ function convertirEventosExternos(events, bpm, dificultad = "normal") {
 	return resultado;
 }
 
+// Convierte un chart.json nativo de Codename Engine (formato CODENAME: strumLines + events + meta)
+// al formato interno del editor {notes: {"row-col": {len}}, events: {"row": {...}}}.
+function convertirChartCodename(data) {
+	if (!data || typeof data !== "object" || !Array.isArray(data.strumLines)) return null;
+
+	const bpm = parseFloat(data.meta?.bpm) || 160;
+	const stepMs = 60000 / bpm / 4;
+	const notes = {};
+	let maxRow = 0;
+
+	data.strumLines.forEach((line) => {
+		if (!line || !Array.isArray(line.notes)) return;
+		// En Codename: type 0 = OPPONENT, type 1 = PLAYER.
+		// En este editor: columnas 0-3 = jugador, 4-7 = oponente.
+		const offset = line.type === 0 ? 4 : 0;
+		line.notes.forEach((note) => {
+			if (!note) return;
+			const lane = parseInt(note.id, 10);
+			if (Number.isNaN(lane)) return;
+			const col = offset + (lane % 4);
+			maxRow = Math.max(maxRow, agregarNotaImportada(notes, note.time, col, note.sLen, stepMs));
+		});
+	});
+	if (Object.keys(notes).length === 0) return null;
+
+	const meta = data.meta && typeof data.meta === "object" ? data.meta : {};
+	const charToTarget = ["opponent", "player", "gf"];
+	const events = {};
+	(Array.isArray(data.events) ? data.events : []).forEach((evento) => {
+		if (!evento || !Number.isFinite(parseFloat(evento.time))) return;
+		const fila = Math.max(0, Math.round(parseFloat(evento.time) / stepMs));
+		// Solo se representa el evento de cámara; el resto queda disponible en currentChartData.events.
+		if (evento.name === "Camera Movement") {
+			const valores = Array.isArray(evento.params) ? evento.params : [];
+			events[fila] = {
+				type: "Focus Camera",
+				target: charToTarget[valores[0]] || "opponent",
+				// Codename: [target, tween?, tweenTime, ease, tweenType, offsetX, offsetY]
+				duration: Number(valores[2]) || 4,
+				offsetX: Number(valores[5]) || 0,
+				offsetY: Number(valores[6]) || 0,
+				effect: String(valores[3] || "CLASSIC").toUpperCase()
+			};
+		}
+	});
+
+	return {
+		id: "chart_" + Date.now(),
+		songName: meta.displayName || meta.name || "Imported Chart",
+		bpm: bpm,
+		author: "",
+		charter: "",
+		speed: parseFloat(data.scrollSpeed) || 1,
+		player: obtenerNombrePersonaje(data.strumLines.find((l) => l && l.type === 1)?.characters, "bf"),
+		opponent: obtenerNombrePersonaje(data.strumLines.find((l) => l && l.type === 0)?.characters, "dad"),
+		girlfriend: "gf",
+		album: "volume1",
+		difficulty: 3,
+		stage: data.stage || "stage",
+		totalRows: Math.max(16, Math.ceil((maxRow + 16) / 16) * 16),
+		notes: notes,
+		events: events,
+	};
+}
+
 function convertirChartExterno(data) {
 	if (!data || typeof data !== "object") return null;
+
+	// Formato nativo de Codename Engine (strumLines con type 0/1 + codenameChart).
+	if (Array.isArray(data.strumLines) && (data.codenameChart === true || data.codenameChart === "true" || data.meta)) return convertirChartCodename(data);
 
 	const interno = normalizarChartFNFC(data);
 	if (interno) return interno;
@@ -163,12 +248,14 @@ function convertirChartExterno(data) {
 			});
 		});
 	} else if (Array.isArray(root.strumLines || root.strumlines)) {
+		// Rama de compatibilidad para formatos similares sin meta.codenameChart (Codename
+		// marca type 0 = OPPONENT / 1 = PLAYER; este editor usa cols 0-3 jugador, 4-7 oponente).
 		const strumLines = root.strumLines || root.strumlines;
 		strumLines.forEach((line, lineIndex) => {
-			const tag = `${line.type || ""} ${line.position || ""} ${line.name || ""} ${line.characters || ""}`.toLowerCase();
+			const tag = `${line.position || ""} ${line.name || ""} ${line.characters || ""}`.toLowerCase();
 			let offset = lineIndex === 0 ? 0 : 4;
-			if (tag.includes("opponent") || tag.includes("enemy") || tag.includes("dad") || line.type === 1) offset = 4;
-			if (tag.includes("player") || tag.includes("boyfriend") || tag.includes("bf") || line.type === 0) offset = 0;
+			if (tag.includes("opponent") || tag.includes("enemy") || tag.includes("dad") || line.type === 0) offset = 4;
+			if (tag.includes("player") || tag.includes("boyfriend") || tag.includes("bf") || line.type === 1) offset = 0;
 
 			(line.notes || []).forEach((note) => {
 				const lane = parseInt(note.id ?? note.d ?? note.lane ?? note.noteData, 10);
@@ -439,10 +526,14 @@ function procesarArchivoCodename(input) {
 	const reader = new FileReader();
 	reader.onload = function (e) {
 		try {
-			const chart = convertirChartExterno(JSON.parse(e.target.result));
-			if (!chart || !abrirChartEnEditor(chart)) alert("Formato JSON/Codename no reconocido.");
+			const data = JSON.parse(e.target.result);
+			const chart = convertirChartCodename(data) || convertirChartExterno(data);
+			if (!chart || !abrirChartEnEditor(chart)) {
+				alert("Este archivo no parece un chart.json de Codename Engine (se espera un JSON con \"strumLines\").");
+			}
 		} catch (err) {
-			alert("Error al leer archivo JSON/Codename.");
+			console.error(err);
+			alert("Error al leer el archivo JSON del chart.");
 		}
 	};
 	reader.readAsText(file);
