@@ -8,10 +8,8 @@
 > This is an unofficial, community-driven fork of
 > [Chart Editor GCD](https://github.com/GamerCB2026/Chart-Editor-GCD),
 > originally created by **GAMERCB**.
->
 > This project is not affiliated with, endorsed by, or maintained
 > by the original author.
->
 > All credit for the original work belongs to its respective author.
 > For attribution and licensing information, see [NOTICE](NOTICE)
 > and [LICENSE](LICENSE).
