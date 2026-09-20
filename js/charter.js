@@ -693,6 +693,7 @@ function togglePlayPause() {
         const t = audioInst.currentTime;
         sincronizarPistasAudio(t);
         lastHitTime = t - 0.001;
+        ultimaFilaSonada = -1; // reinicia la deduplicación de hitsounds
         const reproducciones = [audioInst, audioVoice1, audioVoice2]
             .filter(Boolean)
             .map((audio) => audio.play());
@@ -722,14 +723,19 @@ function reposicionarScroll() {
     actualizarWaveforms(tiempoActual); 
 }
 
-// Hitsounds: en vez de recorrer TODAS las notas de cada frame, se busca en el
-// índice ordenado con búsqueda binaria y solo se examina el rango del frame.
-function hayNotaEnRango(t0Seg, t1Seg) {
+// Hitsounds: devuelve la fila de la PRIMERA nota cuyo hit aún no fue sonado
+// dentro del rango del frame, o -1 si no hay ninguna nueva. Antes bastaba con
+// que hubiera CUALQUIER nota en el rango: como la ventana [lastHitTime,
+// tiempoActual] se solapa entre frames, la misma nota disparaba el sonido
+// varias veces seguidas. ultimaFilaSonada marca hasta dónde ya sonó.
+let ultimaFilaSonada = -1;
+
+function hayNotaNuevaEnRango(t0Seg, t1Seg) {
     if (!notasIdx || notasDirty) construirIndiceNotas();
-    if (!notasIdx.length) return false;
+    if (!notasIdx.length) return -1;
     const hitP = document.getElementById("hit-player")?.checked;
     const hitE = document.getElementById("hit-enemy")?.checked;
-    if (!hitP && !hitE) return false;
+    if (!hitP && !hitE) return -1;
 
     const stepMs = (60 / (currentChartData.bpm || 120)) / 4 * 1000;
     const fila0 = Math.max(0, Math.floor((t0Seg * 1000) / stepMs));
@@ -737,10 +743,12 @@ function hayNotaEnRango(t0Seg, t1Seg) {
 
     let i = limiteInferiorFila(fila0);
     for (; i < notasIdx.length && notasIdx[i].fila <= fila1; i++) {
-        const col = notasIdx[i].col;
-        if ((col < 4 && hitP) || (col >= 4 && hitE)) return true;
+        const n = notasIdx[i];
+        if (n.fila <= ultimaFilaSonada) continue; // ya sonó en un frame anterior
+        const col = n.col;
+        if ((col < 4 && hitP) || (col >= 4 && hitE)) return n.fila;
     }
-    return false;
+    return -1;
 }
 
 function actualizarPlaybackFiel() {
@@ -752,7 +760,13 @@ function actualizarPlaybackFiel() {
             const latencia = 0; 
             const t0 = lastHitTime + latencia;
             const t1 = tiempoActual + latencia;
-            if (t1 > t0 && hayNotaEnRango(t0, t1)) playHitsound();
+            if (t1 > t0) {
+                const filaHit = hayNotaNuevaEnRango(t0, t1);
+                if (filaHit !== -1) {
+                    playHitsound();
+                    ultimaFilaSonada = filaHit;
+                }
+            }
         }
         lastHitTime = tiempoActual;
     }
@@ -791,6 +805,7 @@ function manejarScrollManual() {
     if (audioVoice2) audioVoice2.currentTime = nuevoTiempo;
     
     lastHitTime = nuevoTiempo; 
+    ultimaFilaSonada = -1; // al hacer seek, todo lo anterior vuelve a estar "sin sonar"
     actualizarContadorDeTiempo(nuevoTiempo);
     programarRenderNotas();
     

@@ -84,7 +84,7 @@ function calcularFilasDesdeDuracion(duracion, bpm) {
 }
 // pintarNotasActuales/pintarEventosActuales viven ahora en js/charter.js (render por canvas)
 
-function agregarNotaImportada(notes, timeMs, lane, sustainMs, stepMs) {
+function agregarNotaImportada(notes, timeMs, lane, sustainMs, stepMs) {
 	const laneValue = parseInt(lane, 10);
 	const time = parseFloat(timeMs);
 	if (Number.isNaN(time) || Number.isNaN(laneValue) || laneValue < 0 || laneValue > 7) return 0;
@@ -315,6 +315,53 @@ function cargarMetadatosImportados(meta, chart) {
 	};
 }
 
+// Reconstruye los audios embebidos en el chart (data-URL o base64 crudo, tal como los
+// guarda "Archivar Chart" en localStorage) y redibuja los waveforms. Así reabrir un
+// proyecto archivado (o importar un .fnfc interno con audioBase64) conserva el audio.
+async function restaurarAudiosDesdeChart(chart) {
+	if (!chart || !chart.audioBase64 || typeof chart.audioBase64 !== "object") return false;
+	const entradas = [
+		["inst", "inst"], ["v1", "player"], ["v2", "opponent"]
+	];
+	let restaurado = false;
+	for (const [clave, etiqueta] of entradas) {
+		let dataUrl = chart.audioBase64[clave];
+		if (!dataUrl) continue;
+		if (typeof dataUrl !== "string") continue;
+		// "Archivar Chart" guarda data-URLs, pero por compatibilidad se acepta base64 crudo.
+		if (!dataUrl.startsWith("data:")) dataUrl = "data:audio/ogg;base64," + dataUrl;
+		try {
+			const blob = await (await fetch(dataUrl)).blob();
+			const file = new File([blob], etiqueta + ".ogg", { type: blob.type || "audio/ogg" });
+			const audio = new Audio(URL.createObjectURL(blob));
+			if (clave === "inst") { fileRawInst = file; audioInst = audio; }
+			else if (clave === "v1") { fileRawV1 = file; audioVoice1 = audio; }
+			else { fileRawV2 = file; audioVoice2 = audio; }
+			restaurado = true;
+		} catch (e) {
+			console.error("No se pudo restaurar el audio embebido (" + etiqueta + ")", e);
+		}
+	}
+	if (!restaurado) return false;
+	buffers.inst = await decodeAudioFile(fileRawInst);
+	buffers.v1 = await decodeAudioFile(fileRawV1);
+	buffers.v2 = await decodeAudioFile(fileRawV2);
+	// El chart exportado no siempre tiene en cuenta la duración del audio: amplía la grilla si hace falta.
+	const duracionAudio = Math.max(buffers.inst?.duration || 0, buffers.v1?.duration || 0, buffers.v2?.duration || 0);
+	const filasAudio = calcularFilasDesdeDuracion(duracionAudio, chart.bpm);
+	if (filasAudio > (currentChartData.totalRows || 0)) {
+		currentChartData.totalRows = filasAudio;
+		generarEstructuraGrilla(currentChartData.totalRows);
+		pintarNotasActuales();
+		pintarEventosActuales();
+	}
+	autoAjustarSelectoresDeWaveform(!!(buffers.v1 && buffers.v2));
+	aplicarMuteEstadosUI();
+	cargarDatosEnMesa(fileRawV1, fileRawV2, currentChartData.songName, currentChartData.bpm);
+	if (typeof actualizarWaveforms === "function") actualizarWaveforms();
+	return true;
+}
+
 function abrirChartEnEditor(data, conservarAudios = false) {
 	const dificultadesPreservadas = data && data.difficulties && typeof data.difficulties === "object" && !Array.isArray(data.difficulties)
 		? JSON.parse(JSON.stringify(data.difficulties))
@@ -335,11 +382,22 @@ function abrirChartEnEditor(data, conservarAudios = false) {
 
 	currentChartData = chart;
 	asegurarDificultadesChart(currentChartData);
-	if (!conservarAudios) limpiarAudiosExistentes();
+	// Regla de audio: el audio solo se toca si el chart TRAE uno embebido
+	// (proyectos archivados / .fnfc con audioBase64), en cuyo caso se reemplaza
+	// por el suyo. Si no trae (Codename, JSON, .fnfc sin OGGs), se conserva
+	// intacto el audio ya cargado: importar un chart ya no obliga a
+	// reimportar el audio ni borra los waveforms.
+	const tieneAudioEmbebido = chart.audioBase64 && typeof chart.audioBase64 === "object" && Object.keys(chart.audioBase64).length > 0;
+	if (tieneAudioEmbebido) {
+		limpiarAudiosExistentes();
+		restaurarAudiosDesdeChart(chart);
+	}
 	generarEstructuraGrilla(currentChartData.totalRows);
 	pintarNotasActuales();
 	pintarEventosActuales();
-	cargarDatosEnMesa(null, null, currentChartData.songName, currentChartData.bpm);
+	// Con el audio decidido, muestra las etiquetas reales de las pistas
+	// (antes pasaba nulls y reseteaba los nombres aunque el audio siguiera cargado).
+	cargarDatosEnMesa(fileRawV1, fileRawV2, currentChartData.songName, currentChartData.bpm);
 	const speedInput = document.getElementById("speed-dummy-input");
 	if (speedInput) speedInput.value = currentChartData.speed || 1;
 	const songNameInput = document.getElementById("song-name");

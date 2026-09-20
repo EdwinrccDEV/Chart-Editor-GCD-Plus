@@ -42,6 +42,9 @@ function limpiarAudiosExistentes() {
     if (audioInst) { audioInst.pause(); audioInst.removeAttribute('src'); audioInst = null; }
     if (audioVoice1) { audioVoice1.pause(); audioVoice1.removeAttribute('src'); audioVoice1 = null; }
     if (audioVoice2) { audioVoice2.pause(); audioVoice2.removeAttribute('src'); audioVoice2 = null; }
+    fileRawInst = null;
+    fileRawV1 = null;
+    fileRawV2 = null;
     
     buffers = { inst: null, v1: null, v2: null };
     isPlaying = false;
@@ -116,8 +119,11 @@ function drawWaveSlice(ctx, buffer, timeCenter, resolution, pxPerSec, xOffset, w
     const timeWindow = resolution / pxPerSec;
     const sampleCenter = Math.floor(timeCenter * buffer.sampleRate);
     const sampleWindow = Math.floor(timeWindow * buffer.sampleRate);
-    let start = Math.max(0, sampleCenter - sampleWindow / 2);
-    let end = Math.min(data.length, sampleCenter + sampleWindow / 2);
+    // Redondear los bordes: con floor/ceil, sampleWindow impar produce bordes
+    // fraccionarios (ej. 9424.5) y data[9424.5] es undefined -> NaN -> la línea
+    // no se dibuja (el waveform "desaparecía" según el BPM/zoom del chart).
+    const start = Math.max(0, Math.floor(sampleCenter - sampleWindow / 2));
+    const end = Math.min(data.length, Math.ceil(sampleCenter + sampleWindow / 2));
     let maxAmp = 0;
     for (let i = start; i < end; i++) {
         let abs = Math.abs(data[i]);
