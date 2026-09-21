@@ -162,14 +162,6 @@
                     <div class="dropdown-item" onclick="menuExit()"><i class="fa-solid fa-door-open" style="margin-right: 6px;"></i> Exit</div>
                 </div>
             </div>
-            <div class="menu-item-wrapper" id="menu-importar-wrapper">
-                <div class="top-menu-btn" onclick="toggleMenuImportar(event)">IMPORTAR CHART DE...</div>
-                <div class="dropdown-menu dropdown-menu-import">
-                    <div class="dropdown-item" onclick="importarChartDesdeMenu('codename')"><i class="fa-solid fa-file-code" style="margin-right: 6px;"></i> Codename Chart</div>
-                    <div class="dropdown-item" onclick="importarChartDesdeMenu('psych')"><i class="fa-solid fa-file-code" style="margin-right: 6px;"></i> Psych Chart</div>
-                    <div class="dropdown-item" onclick="importarChartDesdeMenu('legacy')"><i class="fa-solid fa-file-code" style="margin-right: 6px;"></i> Legacy Chart</div>
-                </div>
-            </div>
             <div class="top-menu-btn">EDITOR</div>
             <div class="top-menu-btn">VISTA</div>
             <div class="top-menu-btn active-tab">AUDIO</div>
@@ -502,14 +494,26 @@
                 </button>
             </div>
             <div class="import-chart-options">
+                <span class="import-chart-group">Proyecto del editor</span>
                 <button class="import-chart-option fnfc" type="button" onclick="seleccionarImportacion('fnfc')">
                     <span class="import-chart-icon"><i class="fa-solid fa-file-zipper"></i></span>
                     <span class="import-chart-option-copy"><strong>Chart .fnfc</strong><small>Chart V-Slice con audio incluido</small></span>
                     <i class="fa-solid fa-arrow-right import-chart-arrow"></i>
                 </button>
-                <button class="import-chart-option fnfc" type="button" onclick="seleccionarImportacion('codename')">
+                <span class="import-chart-group">Otros engines</span>
+                <button class="import-chart-option json" type="button" onclick="seleccionarImportacion('codename')">
                     <span class="import-chart-icon"><i class="fa-solid fa-file-code"></i></span>
                     <span class="import-chart-option-copy"><strong>Codename chart.json</strong><small>Chart de Codename Engine (sin audio)</small></span>
+                    <i class="fa-solid fa-arrow-right import-chart-arrow"></i>
+                </button>
+                <button class="import-chart-option json" type="button" onclick="seleccionarImportacion('psych')">
+                    <span class="import-chart-icon"><i class="fa-solid fa-file-code"></i></span>
+                    <span class="import-chart-option-copy"><strong>Psych chart.json</strong><small>Chart de Psych Engine (moderno y legacy)</small></span>
+                    <i class="fa-solid fa-arrow-right import-chart-arrow"></i>
+                </button>
+                <button class="import-chart-option json" type="button" onclick="seleccionarImportacion('legacy')">
+                    <span class="import-chart-icon"><i class="fa-solid fa-file-code"></i></span>
+                    <span class="import-chart-option-copy"><strong>Legacy chart.json</strong><small>Chart de FNF vanilla / Kade Engine</small></span>
                     <i class="fa-solid fa-arrow-right import-chart-arrow"></i>
                 </button>
             </div>

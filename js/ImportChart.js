@@ -14,41 +14,17 @@ function menuAbrirChart() {
 	mostrarModalImportacion();
 }
 
-// ===================
-// IMPORTAR CHART DE...
-// ===================
-
-function menuImportarChartDe() {
-	const wrapper = document.getElementById("menu-importar-wrapper");
-	if (wrapper) wrapper.classList.remove("open");
-	mostrarModalImportacion();
-}
-
-function importarChartDesdeMenu(formato) {
-	const wrapper = document.getElementById("menu-importar-wrapper");
-	if (wrapper) wrapper.classList.remove("open");
-	if (formato === "codename") {
-		cerrarModalImportacion();
-		document.getElementById("import-codename-input")?.click();
-		return;
-	}
-	if (formato === "psych") {
-		cerrarModalImportacion();
-		document.getElementById("import-psych-input")?.click();
-		return;
-	}
-	if (formato === "legacy") {
-		cerrarModalImportacion();
-		document.getElementById("import-legacy-input")?.click();
-		return;
-	}
-	alert("La importación de " + formato + " aún no está implementada.\n\nPor ahora solo está disponible la importación de charts de Codename Engine.");
-}
-
+// El Import Center (modal "Importar chart") es el unico punto de entrada:
+// ahi viven el .fnfc interno y los tres formatos de otros engines.
 function seleccionarImportacion(tipo) {
 	cerrarModalImportacion();
-	const inputId = tipo === "fnfc" ? "import-fnfc-input" : "import-codename-input";
-	document.getElementById(inputId)?.click();
+	const inputIds = {
+		fnfc: "import-fnfc-input",
+		codename: "import-codename-input",
+		psych: "import-psych-input",
+		legacy: "import-legacy-input"
+	};
+	document.getElementById(inputIds[tipo])?.click();
 }
 
 function normalizarChartFNFC(data) {

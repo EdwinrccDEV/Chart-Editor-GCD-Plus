@@ -247,17 +247,11 @@ function toggleMenuWindows(event) {
     event.stopPropagation();
     document.getElementById("menu-windows-wrapper").classList.toggle("open");
 }
-function toggleMenuImportar(event) {
-    event.stopPropagation();
-    document.getElementById("menu-importar-wrapper").classList.toggle("open");
-}
 window.addEventListener("click", function () {
     const wrapper = document.getElementById("menu-archivos-wrapper");
     if (wrapper) wrapper.classList.remove("open");
     const windowsWrapper = document.getElementById("menu-windows-wrapper");
     if (windowsWrapper) windowsWrapper.classList.remove("open");
-    const importarWrapper = document.getElementById("menu-importar-wrapper");
-    if (importarWrapper) importarWrapper.classList.remove("open");
 });
 
 function abrirVentanaEvents() {
