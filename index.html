@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="es" data-theme="dark">
 <head>
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#000000">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -632,5 +636,18 @@
     <script src="js/charter.js"></script>
     <script src="js/ImportChart.js"></script>
     <script src="js/menu.js"></script>
+
+    <script>
+        // PWA: registra el service worker (port de GamerCB2026/PruebaCEGCD).
+        // En localhost no se registra para que el desarrollo siempre sirva archivos frescos.
+        const _esLocal = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname) || location.protocol === "file:";
+        if ('serviceWorker' in navigator && !_esLocal) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registrado con éxito', reg))
+                    .catch(err => console.warn('Error al registrar el Service Worker', err));
+            });
+        }
+    </script>
 </body>
 </html>
