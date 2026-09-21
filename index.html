@@ -659,6 +659,18 @@
                     .catch(err => console.warn('Error al registrar el Service Worker', err));
             });
         }
+
+document.addEventListener("touchmove", function (e) {
+    if (e.touches.length > 1) {
+        e.preventDefault();
+    }
+}, { passive: false });
+
+["gesturestart", "gesturechange", "gestureend"].forEach(function (event) {
+    document.addEventListener(event, function (e) {
+        e.preventDefault();
+    }, { passive: false });
+});
     </script>
 </body>
 </html>
