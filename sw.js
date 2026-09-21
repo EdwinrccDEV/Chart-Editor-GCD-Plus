@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gcd-plus-editor-v081';
+const CACHE_NAME = 'gcd-plus-editor-v09';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -40,18 +40,21 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// NETWORK-FIRST: intenta siempre la red (asi los fixes llegan de inmediato) y
+// solo cae a la cache si no hay conexion (modo offline de la PWA). El cache-first
+// anterior dejaba al navegador clavado con JS viejo: la cache statica nunca se
+// revalidaba y los fixes no llegaban a los usuarios ya con el SW instalado.
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        const copy = response.clone();
-        if (response.ok && event.request.url.startsWith(self.location.origin)) {
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        }
-        return response;
-      }).catch(() => cached);
-    })
+    fetch(event.request).then((response) => {
+      const copy = response.clone();
+      if (response.ok && event.request.url.startsWith(self.location.origin)) {
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+      }
+      return response;
+    }).catch(() =>
+      caches.match(event.request).then((cached) => cached || caches.match('./'))
+    )
   );
 });

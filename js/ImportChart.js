@@ -393,9 +393,25 @@ function abrirChartEnEditor(data, conservarAudios = false) {
 	// y ya hay un proyecto abierto con BPM propio, se CONSERVA el BPM del
 	// proyecto y las filas de notas/eventos se recalculan a su grilla usando sus
 	// tiempos EXACTOS en ms (que son absolutos respecto al audio: no se escalan).
+	// Si trae un BPM explicito DISTINTO, se pregunta al usuario. Y si el chart
+	// trae audio embebido (proyecto archivado / .fnfc con OGGs), su BPM es
+	// autoridad: sus notas van sincronizadas a SU audio, nunca se re-alinean.
 	const bpmProyecto = parseFloat(document.getElementById("song-bpm")?.value);
-	const hayProyectoConBpm = Number.isFinite(bpmProyecto) && bpmProyecto > 0;
-	if (!chart.bpmExplicito && hayProyectoConBpm && currentChartData) {
+	const traeAudioEmbebido = chart.audioBase64 && typeof chart.audioBase64 === "object" && Object.keys(chart.audioBase64).length > 0;
+	const hayProyectoConBpm = Number.isFinite(bpmProyecto) && bpmProyecto > 0 && !!currentChartData;
+	let conservarBpmProyecto = false;
+	if (hayProyectoConBpm && !traeAudioEmbebido) {
+		if (!chart.bpmExplicito) {
+			conservarBpmProyecto = true;
+		} else if (chart.bpm !== bpmProyecto) {
+			conservarBpmProyecto = !confirm(
+				"El chart importado trae BPM " + chart.bpm + ", pero tu proyecto usa " + bpmProyecto + ".\n\n" +
+				"ACEPTAR = usar el BPM del chart (" + chart.bpm + ")\n" +
+				"CANCELAR = conservar el BPM de tu proyecto (" + bpmProyecto + ") y alinear las notas a su grilla"
+			);
+		}
+	}
+	if (conservarBpmProyecto) {
 		chart.bpm = bpmProyecto;
 		const stepDestino = 60000 / bpmProyecto / 4;
 		let maxFila = 0;
@@ -437,8 +453,7 @@ function abrirChartEnEditor(data, conservarAudios = false) {
 	// por el suyo. Si no trae (Codename, JSON, .fnfc sin OGGs), se conserva
 	// intacto el audio ya cargado: importar un chart ya no obliga a
 	// reimportar el audio ni borra los waveforms.
-	const tieneAudioEmbebido = chart.audioBase64 && typeof chart.audioBase64 === "object" && Object.keys(chart.audioBase64).length > 0;
-	if (tieneAudioEmbebido) {
+	if (traeAudioEmbebido) {
 		limpiarAudiosExistentes();
 		restaurarAudiosDesdeChart(chart);
 	}
