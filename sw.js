@@ -39,7 +39,6 @@ self.addEventListener('activate', (event) => {
     ).then(() => self.clients.claim())
   );
 });
-
 // NETWORK-FIRST: intenta siempre la red (asi los fixes llegan de inmediato) y
 // solo cae a la cache si no hay conexion (modo offline de la PWA). El cache-first
 // anterior dejaba al navegador clavado con JS viejo: la cache statica nunca se
