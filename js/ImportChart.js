@@ -46,10 +46,12 @@ function normalizarChartFNFC(data) {
 	const esFormatoInterno = Object.keys(data.notes).every((key) => /^\d+-\d+$/.test(key));
 	if (!esFormatoInterno) return null;
 	const notes = data.notes || {};
+	const bpmNum = parseFloat(data.bpm);
 	return {
 		id: data.id || "chart_" + Date.now(),
 		songName: data.songName || data.name || "Imported Chart",
-		bpm: parseFloat(data.bpm) || 160,
+		bpm: Number.isFinite(bpmNum) && bpmNum > 0 ? bpmNum : 160,
+		bpmExplicito: Number.isFinite(bpmNum) && bpmNum > 0,
 		author: data.author || data.composer || data.artist || "",
 		charter: data.charter || "",
 		speed: parseFloat(data.speed) || 1,
@@ -118,6 +120,7 @@ function convertirEventosExternos(events, bpm, dificultad = "normal") {
 		const char = parseInt(valores.char, 10);
 		resultado[fila] = {
 			type: "Focus Camera",
+			t: tiempo,
 			target: charToTarget[char] || "opponent",
 			duration: Number(valores.duration) || 4,
 			offsetX: Number(valores.x) || 0,
@@ -133,7 +136,8 @@ function convertirEventosExternos(events, bpm, dificultad = "normal") {
 function convertirChartCodename(data) {
 	if (!data || typeof data !== "object" || !Array.isArray(data.strumLines)) return null;
 
-	const bpm = parseFloat(data.meta?.bpm) || 160;
+	const bpmRaw = parseFloat(data.meta?.bpm);
+	const bpm = Number.isFinite(bpmRaw) && bpmRaw > 0 ? bpmRaw : 160;
 	const stepMs = 60000 / bpm / 4;
 	const notes = {};
 	let maxRow = 0;
@@ -162,8 +166,11 @@ function convertirChartCodename(data) {
 		// Solo se representa el evento de cámara; el resto queda disponible en currentChartData.events.
 		if (evento.name === "Camera Movement") {
 			const valores = Array.isArray(evento.params) ? evento.params : [];
+			// Guarda el tiempo EXACTO en ms para poder re-alinear el evento si el
+			// BPM del chart era un fallback y se conserva el del proyecto.
 			events[fila] = {
 				type: "Focus Camera",
+				t: parseFloat(evento.time),
 				target: charToTarget[valores[0]] || "opponent",
 				// Codename: [target, tween?, tweenTime, ease, tweenType, offsetX, offsetY]
 				duration: Number(valores[2]) || 4,
@@ -178,6 +185,7 @@ function convertirChartCodename(data) {
 		id: "chart_" + Date.now(),
 		songName: meta.displayName || meta.name || "Imported Chart",
 		bpm: bpm,
+		bpmExplicito: Number.isFinite(bpmRaw) && bpmRaw > 0,
 		author: "",
 		charter: "",
 		speed: parseFloat(data.scrollSpeed) || 1,
@@ -203,7 +211,8 @@ function convertirChartExterno(data) {
 	if (interno) return interno;
 
 	const root = data.song && typeof data.song === "object" ? data.song : data;
-	const bpm = parseFloat(root.bpm || data.bpm) || 160;
+	const bpmRaw = parseFloat(root.bpm || data.bpm);
+	const bpm = Number.isFinite(bpmRaw) && bpmRaw > 0 ? bpmRaw : 160;
 	const speedValue = typeof root.scrollSpeed === "object" ? root.scrollSpeed.normal : root.scrollSpeed;
 	const stepMs = 60000 / bpm / 4;
 	const notes = {};
@@ -253,6 +262,7 @@ function convertirChartExterno(data) {
 		id: "chart_" + Date.now(),
 		songName: root.songName || root.song || root.name || data.songName || "Imported Chart",
 		bpm: bpm,
+		bpmExplicito: Number.isFinite(bpmRaw) && bpmRaw > 0,
 		author: root.artist || root.author || "",
 		charter: root.charter || root.chartedBy || "",
 		speed: parseFloat(speedValue) || parseFloat(data.speed) || 1,
@@ -305,12 +315,14 @@ function cargarMetadatosImportados(meta, chart) {
 	const playData = meta.playData || {};
 	const characters = playData.characters || {};
 	const speedValue = typeof chart.scrollSpeed === "object" ? chart.scrollSpeed.normal : chart.scrollSpeed;
-	const bpm = parseFloat(meta.timeChanges?.[0]?.bpm || meta.bpm || chart.bpm) || 160;
+	const bpmRaw = parseFloat(meta.timeChanges?.[0]?.bpm || meta.bpm || chart.bpm);
+	const bpm = Number.isFinite(bpmRaw) && bpmRaw > 0 ? bpmRaw : 160;
 	return {
 		songName: meta.songName || meta.song || "Imported Chart",
 		author: meta.artist || meta.composer || "",
 		charter: meta.charter || meta.credit || "",
 		bpm: bpm,
+		bpmExplicito: Number.isFinite(parseFloat(meta.timeChanges?.[0]?.bpm || meta.bpm)),
 		speed: parseFloat(speedValue) || 1,
 		player: obtenerNombrePersonaje(characters.player || playData.player || meta.player || playData.playerVocals || meta.playerVocals, "bf"),
 		opponent: obtenerNombrePersonaje(characters.opponent || playData.opponent || meta.opponent || playData.opponentVocals || meta.opponentVocals, "dad"),
@@ -375,6 +387,38 @@ function abrirChartEnEditor(data, conservarAudios = false) {
 	const dificultadActivaPreservada = data && typeof data.activeDifficulty === "string" ? data.activeDifficulty : null;
 	const chart = normalizarChartFNFC(data) || convertirChartExterno(data);
 	if (!chart) return false;
+
+	// Regla de BPM: el chart solo manda si trae un BPM EXPLICITO. Cuando el BPM
+	// era un fallback (ej. 160 porque el chart.json de Codename no trae meta.bpm)
+	// y ya hay un proyecto abierto con BPM propio, se CONSERVA el BPM del
+	// proyecto y las filas de notas/eventos se recalculan a su grilla usando sus
+	// tiempos EXACTOS en ms (que son absolutos respecto al audio: no se escalan).
+	const bpmProyecto = parseFloat(document.getElementById("song-bpm")?.value);
+	const hayProyectoConBpm = Number.isFinite(bpmProyecto) && bpmProyecto > 0;
+	if (!chart.bpmExplicito && hayProyectoConBpm && currentChartData) {
+		chart.bpm = bpmProyecto;
+		const stepDestino = 60000 / bpmProyecto / 4;
+		let maxFila = 0;
+		const notasRealineadas = {};
+		Object.entries(chart.notes || {}).forEach(([clave, nota]) => {
+			const [fila, col] = clave.split("-").map(Number);
+			const nuevaFila = Number.isFinite(nota.t) ? Math.max(0, Math.round(nota.t / stepDestino)) : fila;
+			// El largo del sustain en filas fue calculado con el step del BPM
+			// fallback: se recalcula desde su duracion EXACTA en ms (s).
+			if (Number.isFinite(nota.s)) nota.len = Math.max(0, Math.round(nota.s / stepDestino));
+			maxFila = Math.max(maxFila, nuevaFila + (nota.len || 0));
+			notasRealineadas[`${nuevaFila}-${col}`] = nota;
+		});
+		chart.notes = notasRealineadas;
+		const eventosRealineados = {};
+		Object.entries(chart.events || {}).forEach(([clave, evento]) => {
+			// Los eventos van SOLO por fila (sin columna): la clave es el numero de fila.
+			const nuevaFila = Number.isFinite(evento.t) ? Math.max(0, Math.round(evento.t / stepDestino)) : parseInt(clave, 10) || 0;
+			eventosRealineados[`${nuevaFila}`] = evento;
+		});
+		chart.events = eventosRealineados;
+		chart.totalRows = Math.max(16, Math.ceil((maxFila + 16) / 16) * 16);
+	}
 
 	if (dificultadesPreservadas && Object.keys(dificultadesPreservadas).length) {
 		chart.difficulties = dificultadesPreservadas;
