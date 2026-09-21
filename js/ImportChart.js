@@ -3,11 +3,13 @@
 function mostrarModalImportacion() {
 	const modal = document.getElementById("modal-importar-chart");
 	if (modal) modal.classList.add("active");
+	document.body.classList.add("modal-open"); // móvil: sin scroll de fondo
 }
 
 function cerrarModalImportacion() {
 	const modal = document.getElementById("modal-importar-chart");
 	if (modal) modal.classList.remove("active");
+	document.body.classList.remove("modal-open");
 }
 
 function menuAbrirChart() {

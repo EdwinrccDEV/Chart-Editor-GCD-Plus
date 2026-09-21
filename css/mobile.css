@@ -383,3 +383,73 @@
     padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0));
   }
 }
+
+/* --- Modales compactos en móvil (Import Center, crear chart, re-vincular) ---
+   Sin max-height, el Import Center (5 tarjetas) mide más que la pantalla y el
+   centrado flex lo empuja fuera del viewport sin scroll interno. */
+@media (max-width: 700px) {
+  .modal-overlay,
+  .import-chart-overlay {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    padding: 12px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0));
+  }
+
+  .modal-window,
+  .import-chart-panel {
+    max-width: 100%;
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Import Center compacto: tarjetas más bajas, menos aire */
+  .import-chart-panel {
+    padding: 18px 16px;
+  }
+
+  .import-chart-header {
+    margin-bottom: 14px;
+  }
+
+  .import-chart-header h2 {
+    font-size: 18px;
+  }
+
+  .import-chart-header p {
+    font-size: 11px;
+  }
+
+  .import-chart-options {
+    gap: 8px;
+  }
+
+  .import-chart-option {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .import-chart-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+
+  .import-chart-option-copy strong {
+    font-size: 13px;
+  }
+
+  .import-chart-option-copy small {
+    font-size: 10px;
+  }
+
+  .import-chart-cancel {
+    margin-top: 12px;
+    padding: 12px;
+  }
+}

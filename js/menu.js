@@ -107,10 +107,12 @@ function cambiarZoomDesdeAjustes(valor) {
 function abrirModalNuevoChart() {
     irAPaso1();
     document.getElementById("modal-nuevo-chart").classList.add("active");
+    document.body.classList.add("modal-open"); // móvil: sin scroll de fondo
 }
 
 function cerrarModalNuevoChart() {
     document.getElementById("modal-nuevo-chart").classList.remove("active");
+    document.body.classList.remove("modal-open");
 }
 
 function irAPaso2() {
@@ -790,10 +792,12 @@ function exitEditor() {
 function abrirModalReVincularAudios() {
     resetearFormularios(); // <-- Purgamos para que el modal salga limpio sin audios de canciones pasadas
     document.getElementById("modal-revincular-audio").classList.add("active");
+    document.body.classList.add("modal-open"); // móvil: sin scroll de fondo
 }
 
 function cerrarModalReVincularAudios() {
     document.getElementById("modal-revincular-audio").classList.remove("active");
+    document.body.classList.remove("modal-open");
 }
 
 async function procesarReVinculacionAudios() {

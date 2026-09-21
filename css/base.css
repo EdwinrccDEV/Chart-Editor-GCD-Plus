@@ -90,3 +90,17 @@ body, html {
         display: flex; 
     }
 }
+
+/* Bloquea el scroll del fondo cuando un modal esta abierto (imagen 2:
+   el menu se deslizaba fuera de pantalla detras del modal en movil).
+   Agregar 'modal-open' a body al abrir y quitarlo al cerrar. */
+body.modal-open {
+    overflow: hidden;
+    touch-action: none;
+}
+
+/* El contenido del modal si puede desplazarse (vertical) */
+body.modal-open .modal-overlay,
+body.modal-open .import-chart-overlay {
+    touch-action: pan-y;
+}
