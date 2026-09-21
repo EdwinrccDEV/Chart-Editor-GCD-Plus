@@ -37,6 +37,11 @@ function importarChartDesdeMenu(formato) {
 		document.getElementById("import-psych-input")?.click();
 		return;
 	}
+	if (formato === "legacy") {
+		cerrarModalImportacion();
+		document.getElementById("import-legacy-input")?.click();
+		return;
+	}
 	alert("La importación de " + formato + " aún no está implementada.\n\nPor ahora solo está disponible la importación de charts de Codename Engine.");
 }
 
@@ -206,9 +211,24 @@ function convertirChartCodename(data) {
 	};
 }
 
-// Convierte un chart nativo de Psych Engine (formato psych_v1: sections + events)
+// Replica la semantica de secciones del FNF clasico (vanilla / Kade Engine /
+// Psych 0.1-0.3, equivalente a Song.convert de Psych): las lanes 0-3 son del
+// dueno de la seccion segun mustHitSection (true = jugador, false = oponente)
+// y las 4-7 del otro lado.
+function remapearLaneLegacy(lane, mustHit) {
+	const lanePos = ((lane % 4) + 4) % 4;
+	// En charts legacy las lanes 4-7 pertenecen al cuadrante contrario al de
+	// la seccion: lanes 0-3 van al dueno de mustHitSection y 4-7 al otro lado
+	// (equivalente exacto a Song.convert de Psych).
+	const ladoJugador = lane >= 4 ? !mustHit : mustHit;
+	return ladoJugador ? lanePos : lanePos + 4;
+}
+
+// Convierte un chart por secciones (FNF vanilla / Kade Engine / Psych Engine)
 // al formato interno del editor {notes: {"row-col": {len}}, events: {"row": {...}}}.
-function convertirChartPsych(data) {
+// Los charts psych_v1 traen lanes absolutas; los legacy usan lanes relativas a
+// la seccion que se normalizan con remapearLaneLegacy.
+function convertirChartSecciones(data) {
 	if (!data || typeof data !== "object") return null;
 	// Los charts se pueden exportar envueltos ("song": {...}) o con el objeto directo.
 	const root = data.song && typeof data.song === "object" ? data.song : data;
@@ -223,11 +243,22 @@ function convertirChartPsych(data) {
 	const esChartViejo = !String(root.format || "").startsWith("psych_v1");
 	const notes = {};
 	let maxRow = 0;
+	let avisoBpmDado = false;
 
 	root.notes.forEach((section) => {
 		if (!section || !Array.isArray(section.sectionNotes)) return;
 		// mustHitSection define de que lado de la seccion son las lanes 0-3.
 		const mustHit = section.mustHitSection !== false;
+		// Los charts legacy pueden cambiar el BPM por seccion; el editor usa un
+		// BPM unico, asi que se conserva el base y se avisa (los tiempos en ms
+		// exactos de las notas se preservan igual, solo la grilla queda orientativa).
+		if (esChartViejo && section.changeBPM) {
+			const bpmSeccion = parseFloat(section.bpm);
+			if (Number.isFinite(bpmSeccion) && bpmSeccion > 0 && bpmSeccion !== bpm && !avisoBpmDado) {
+				avisoBpmDado = true;
+				console.warn("[Import] Este chart cambia de BPM a mitad de cancion (" + bpmSeccion + "). El editor usa un BPM unico (" + bpm + "); las notas conservan su tiempo exacto pero la grilla queda orientativa.");
+			}
+		}
 		section.sectionNotes.forEach((note) => {
 			if (!Array.isArray(note) && (typeof note !== "object" || note === null)) return;
 			const time = parseFloat(Array.isArray(note) ? note[0] : note.time);
@@ -237,10 +268,10 @@ function convertirChartPsych(data) {
 			// Lane negativa en charts viejos = evento embebido (Psych lo mueve a
 			// song.events en su convert()). Se procesa abajo con los demas eventos.
 			if (lane < 0) return;
-			// Charts viejos: lanes 0-3 van al lado indicado por mustHitSection
-			// (repl. de Song.convert de Psych); psych_v1 ya es absoluto.
-			if (lane > 3) lane = 4 + (lane % 4);
-			else if (esChartViejo && !mustHit) lane += 4;
+			// Charts viejos: las lanes son relativas a la seccion (repl. de
+			// Song.convert de Psych); psych_v1 ya trae lanes absolutas.
+			if (esChartViejo) lane = remapearLaneLegacy(lane, mustHit);
+			else if (lane > 3) lane = 4 + (lane % 4);
 			if (lane < 0 || lane > 7) return;
 			maxRow = Math.max(maxRow, agregarNotaImportada(notes, time, lane, sustain, stepMs));
 		});
@@ -286,6 +317,41 @@ function convertirChartPsych(data) {
 			procesarEvento(parseFloat(note[0]), note[2], note[3], note[4]);
 		});
 	});
+	// Kade Engine formato KE1: eventObjects = [{name, position (beats), value, type}].
+	(Array.isArray(root.eventObjects) ? root.eventObjects : []).forEach((ev) => {
+		if (!ev || typeof ev !== "object") return;
+		const bpmEv = parseFloat(ev.value);
+		if (String(ev.type || "").toLowerCase() === "bpm change" && Number.isFinite(bpmEv) && bpmEv > 0 && bpmEv !== bpm && !avisoBpmDado) {
+			avisoBpmDado = true;
+			console.warn("[Import] Este chart cambia de BPM a mitad de cancion (" + bpmEv + "). El editor usa un BPM unico (" + bpm + "); las notas conservan su tiempo exacto pero la grilla queda orientativa.");
+		}
+	});
+	// Camara derivada: en el FNF clasico (vanilla/Kade/Psych) la camara sigue a
+	// mustHitSection (y gfSection). Genera Focus Camera solo en los cambios de
+	// lado (y en el inicio), sin pisar eventos explicitos ya mapeados.
+	let mustHitPrevio = null;
+	let beatAcumulado = 0;
+	root.notes.forEach((section) => {
+		if (!section) return;
+		const mustHit = section.mustHitSection !== false;
+		// sectionBeats ya viene en beats (4 por defecto en vanilla/Kade/Psych).
+		const beats = parseFloat(section.sectionBeats) || 4;
+		const tiempo = beatAcumulado * (stepMs * 4);
+		beatAcumulado += beats;
+		if (mustHit === mustHitPrevio && !section.gfSection) return;
+		mustHitPrevio = mustHit;
+		const fila = Math.max(0, Math.round(tiempo / stepMs));
+		if (events[fila]) return;
+		events[fila] = {
+			type: "Focus Camera",
+			t: tiempo,
+			target: section.gfSection ? "gf" : mustHit ? "player" : "opponent",
+			duration: 4,
+			offsetX: 0,
+			offsetY: 0,
+			effect: "CLASSIC"
+		};
+	});
 
 	return {
 		id: "chart_" + Date.now(),
@@ -297,7 +363,8 @@ function convertirChartPsych(data) {
 		speed: parseFloat(root.speed) || 1,
 		player: root.player1 || "bf",
 		opponent: root.player2 || "dad",
-		girlfriend: root.gfVersion || "gf",
+		// FNF vanilla y Kade usan player3; Psych moderno usa gfVersion.
+		girlfriend: root.gfVersion || root.player3 || "gf",
 		album: "volume1",
 		difficulty: 3,
 		stage: root.stage || "stage",
@@ -305,6 +372,16 @@ function convertirChartPsych(data) {
 		notes: notes,
 		events: events,
 	};
+}
+
+// Ambos menus usan el mismo conversor por secciones: la deteccion de
+// psych_v1 (format) decide si las lanes ya son absolutas o se remapean.
+function convertirChartPsych(data) {
+	return convertirChartSecciones(data);
+}
+
+function convertirChartKade(data) {
+	return convertirChartSecciones(data);
 }
 
 function convertirChartExterno(data) {
@@ -325,13 +402,9 @@ function convertirChartExterno(data) {
 	let maxRow = 0;
 
 	if (Array.isArray(root.notes) && root.notes.length && root.notes[0].sectionNotes) {
-		root.notes.forEach((section) => {
-			(section.sectionNotes || []).forEach((note) => {
-				const noteData = parseInt(note[1], 10);
-				if (Number.isNaN(noteData) || noteData < 0 || noteData > 7) return;
-				maxRow = Math.max(maxRow, agregarNotaImportada(notes, note[0], noteData, note[2], stepMs));
-			});
-		});
+		// Charts por secciones (vanilla/Kade/Psych legacy): mismo conversor que
+		// los menus dedicados, con remap de mustHitSection incluido.
+		return convertirChartSecciones(data);
 	} else if (Array.isArray(root.strumLines || root.strumlines)) {
 		// Rama de compatibilidad para formatos similares sin meta.codenameChart (Codename
 		// marca type 0 = OPPONENT / 1 = PLAYER; este editor usa cols 0-3 jugador, 4-7 oponente).
@@ -743,6 +816,26 @@ function procesarArchivoPsych(input) {
 			const chart = convertirChartPsych(data) || convertirChartExterno(data);
 			if (!chart || !abrirChartEnEditor(chart)) {
 				alert("Este archivo no parece un chart de Psych Engine (se espera un JSON con \"notes\" por secciones y \"sectionNotes\").");
+			}
+		} catch (err) {
+			console.error(err);
+			alert("Error al leer el archivo JSON del chart.");
+		}
+	};
+	reader.readAsText(file);
+	input.value = "";
+}
+
+function procesarArchivoLegacy(input) {
+	const file = input.files[0];
+	if (!file) return;
+	const reader = new FileReader();
+	reader.onload = function (e) {
+		try {
+			const data = JSON.parse(e.target.result);
+			const chart = convertirChartKade(data) || convertirChartExterno(data);
+			if (!chart || !abrirChartEnEditor(chart)) {
+				alert("Este archivo no parece un chart de FNF Legacy/Kade Engine (se espera un JSON con \"notes\" por secciones y \"sectionNotes\").");
 			}
 		} catch (err) {
 			console.error(err);

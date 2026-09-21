@@ -29,6 +29,7 @@
     <input type="file" id="import-fnfc-input" accept=".fnfc" style="display: none;" onchange="procesarArchivoFNFC(this)">
     <input type="file" id="import-codename-input" accept=".json" style="display: none;" onchange="procesarArchivoCodename(this)">
     <input type="file" id="import-psych-input" accept=".json" style="display: none;" onchange="procesarArchivoPsych(this)">
+    <input type="file" id="import-legacy-input" accept=".json" style="display: none;" onchange="procesarArchivoLegacy(this)">
     
     <div id="orientation-warning">
         <img src="Icons/GiraTuCel.png" alt="Gira tu dispositivo">
@@ -166,7 +167,7 @@
                 <div class="dropdown-menu dropdown-menu-import">
                     <div class="dropdown-item" onclick="importarChartDesdeMenu('codename')"><i class="fa-solid fa-file-code" style="margin-right: 6px;"></i> Codename Chart</div>
                     <div class="dropdown-item" onclick="importarChartDesdeMenu('psych')"><i class="fa-solid fa-file-code" style="margin-right: 6px;"></i> Psych Chart</div>
-                    <div class="dropdown-item soon" onclick="importarChartDesdeMenu('legacy')"><i class="fa-solid fa-file-code" style="margin-right: 6px;"></i> Legacy Chart <span class="soon-badge">Pronto</span></div>
+                    <div class="dropdown-item" onclick="importarChartDesdeMenu('legacy')"><i class="fa-solid fa-file-code" style="margin-right: 6px;"></i> Legacy Chart</div>
                 </div>
             </div>
             <div class="top-menu-btn">EDITOR</div>
