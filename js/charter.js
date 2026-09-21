@@ -689,6 +689,11 @@ function togglePlayPause() {
         btn.innerHTML = '<i class="fa-solid fa-play"></i> Reproducir';
         btn.classList.remove("playing");
         cancelAnimationFrame(animationFrameId);
+        const btnMobile = document.getElementById("btn-play-pause-mobile");
+        if (btnMobile) {
+            btnMobile.innerHTML = '<i class="fa-solid fa-play"></i> Play';
+            btnMobile.classList.remove("playing");
+        }
     } else {
         const t = audioInst.currentTime;
         sincronizarPistasAudio(t);
@@ -703,6 +708,11 @@ function togglePlayPause() {
         // Cambia a icono de Pausa
         btn.innerHTML = '<i class="fa-solid fa-pause"></i> Pausar';
         btn.classList.add("playing");
+        const btnMobile = document.getElementById("btn-play-pause-mobile");
+        if (btnMobile) {
+            btnMobile.innerHTML = '<i class="fa-solid fa-pause"></i> Pausa';
+            btnMobile.classList.add("playing");
+        }
         animationFrameId = requestAnimationFrame(actualizarPlaybackFiel);
     }
 }

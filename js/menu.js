@@ -33,7 +33,43 @@ window.onload = function () {
             if (!e.target.closest(".grid-cell")) deseleccionarNotaActual();
         });
     }
+    // Modo vertical móvil (port de GamerCB2026/PruebaCEGCD): restaura la preferencia.
+    const portraitAllowed = localStorage.getItem(PORTRAIT_KEY) !== "0";
+    setPortraitMode(portraitAllowed);
 };
+
+// ==============================
+// MODO VERTICAL MÓVIL (port de GamerCB2026/PruebaCEGCD)
+// ==============================
+const PORTRAIT_KEY = "fnf_gcd_portrait_allowed";
+
+function setPortraitMode(enabled) {
+    document.body.classList.toggle("portrait-allowed", !!enabled);
+    localStorage.setItem(PORTRAIT_KEY, enabled ? "1" : "0");
+    document.querySelectorAll(".portrait-select-card").forEach((c) => c.classList.remove("active-theme"));
+    const btn = document.getElementById(enabled ? "portrait-on-btn" : "portrait-off-btn");
+    if (btn) btn.classList.add("active-theme");
+    if (!enabled) closeMobilePanels();
+    if (typeof reajustarTrasCambioViewport === "function") {
+        requestAnimationFrame(() => reajustarTrasCambioViewport());
+    }
+}
+
+function toggleMobilePanel(side) {
+    const left = side === "left";
+    document.body.classList.toggle(left ? "left-panel-open" : "right-panel-open");
+    if (left) document.body.classList.remove("right-panel-open");
+    else document.body.classList.remove("left-panel-open");
+}
+
+function closeMobilePanels() {
+    document.body.classList.remove("left-panel-open", "right-panel-open");
+}
+
+function esPortraitPermitidoActivo() {
+    return document.body.classList.contains("portrait-allowed")
+        && window.matchMedia("(orientation: portrait)").matches;
+}
 
 // Ayudante inteligente para cambiar la Waveform
 function autoAjustarSelectoresDeWaveform(tieneVoces) {

@@ -16,8 +16,9 @@
     <link rel="stylesheet" href="css/ImportChartMenu.css">
     <link rel="stylesheet" href="css/membresia.css">
     <link rel="stylesheet" href="css/StageEditor.css">
+    <link rel="stylesheet" href="css/mobile.css">
 </head>
-<body>
+<body class="portrait-allowed">
 
     <div class="beta-badge">BETA 1</div>
 
@@ -79,6 +80,16 @@
                     <div class="theme-selector-row">
                         <div class="theme-select-card" id="theme-light-btn" onclick="setTheme('light')"><i class="fa-solid fa-sun"></i> Claro</div>
                         <div class="theme-select-card active-theme" id="theme-dark-btn" onclick="setTheme('dark')"><i class="fa-solid fa-moon"></i> Oscuro</div>
+                    </div>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <div class="setting-name">Modo Vertical (Móvil)</div>
+                        <div class="setting-desc">Reorganiza la interfaz para usar el editor en vertical en el teléfono.</div>
+                    </div>
+                    <div class="theme-selector-row">
+                        <div class="theme-select-card portrait-select-card active-theme" id="portrait-on-btn" onclick="setPortraitMode(true)"><i class="fa-solid fa-mobile-screen"></i> Activado</div>
+                        <div class="theme-select-card portrait-select-card" id="portrait-off-btn" onclick="setPortraitMode(false)"><i class="fa-solid fa-ban"></i> Desactivado</div>
                     </div>
                 </div>
                 <div class="setting-item">
@@ -167,6 +178,12 @@
             <div class="top-menu-btn" onclick="abrirVentanaHelp()">HELP</div>
             <div class="top-prototype-text">PROTOTYPE Functionality is subject to change.</div>
         </div>
+
+        <div class="mobile-editor-toolbar" id="mobile-editor-toolbar">
+  <button type="button" class="mobile-tool-btn" onclick="toggleMobilePanel('left')" aria-label="Audio y controles"><i class="fa-solid fa-sliders"></i> Audio</button>
+  <button type="button" class="mobile-tool-btn mobile-tool-play" id="btn-play-pause-mobile" onclick="togglePlayPause()"><i class="fa-solid fa-play"></i> Play</button>
+</div>
+<div class="mobile-panel-backdrop" id="mobile-panel-backdrop" onclick="closeMobilePanels()"></div>
 
         <div class="workspace-body">
             <div class="control-panel-left">
@@ -288,6 +305,17 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <div id="mobile-sustain-bar" class="mobile-sustain-bar" aria-label="Controles de sustain">
+            <button type="button" class="mobile-sustain-btn btn-recortar" onclick="ajustarLongitudNota(-1)" aria-label="Recortar sustain">
+                <i class="fa-solid fa-arrow-up"></i>
+                <span>Recortar</span>
+            </button>
+            <button type="button" class="mobile-sustain-btn btn-extender" onclick="ajustarLongitudNota(1)" aria-label="Extender sustain">
+                <i class="fa-solid fa-arrow-down"></i>
+                <span>Extender</span>
+            </button>
         </div>
 
         <div class="bottom-playback-bar">
