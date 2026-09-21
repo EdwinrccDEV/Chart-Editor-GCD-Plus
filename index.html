@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="css/charter.css">
     <link rel="stylesheet" href="css/ImportChartMenu.css">
     <link rel="stylesheet" href="css/membresia.css">
+    <link rel="stylesheet" href="css/StageEditor.css">
 </head>
 <body>
 
@@ -32,6 +33,9 @@
             <button class="tab-btn active" id="tab-recientes" onclick="switchTab('recientes')">
                 <img src="Icons/Projects.png" class="menu-icon icon-projects" alt=""> Proyectos
             </button>
+            <button class="tab-btn tab-btn-stage" id="tab-stage" type="button" onclick="switchTab('stage')">
+                <i class="fa-solid fa-cubes menu-icon-fa"></i> Proyectos Stage Editor
+            </button>
             <button class="tab-btn" id="tab-ajustes" onclick="switchTab('ajustes')">
                 <img src="Icons/Config.png" class="menu-icon icon-config" alt=""> Ajustes App
             </button>
@@ -46,6 +50,19 @@
                 <p class="panel-subtitle">Charts guardados en la memoria local de este navegador.</p>
             </div>
             <div class="folder-grid" id="lista-proyectos-grid"></div>
+        </div>
+
+        <div id="panel-stage" class="content-panel">
+            <div class="panel-header">
+                <h1 class="panel-title">Stage Editor</h1>
+                <p class="panel-subtitle">Próximamente…</p>
+            </div>
+            <div class="stage-editor-hero">
+                <div class="stage-editor-hero-icon"><i class="fa-solid fa-cubes"></i></div>
+                <h1>Stage Editor</h1>
+                <p>Próximamente podrás editar escenarios y capas de stage desde aquí. Esta sección está en construcción.</p>
+                <span class="stage-editor-badge">Próximamente</span>
+            </div>
         </div>
 
         <div id="panel-ajustes" class="content-panel">
@@ -581,6 +598,7 @@
     <!-- TUS SCRIPTS MODULARES -->
     <script src="js/membresia.js"></script>
     <script src="js/SisMiembros.js"></script>
+    <script src="js/StageEditor.js"></script>
     <script src="js/variables.js"></script>
     <script src="js/audio.js"></script>
     <script src="js/charter.js"></script>

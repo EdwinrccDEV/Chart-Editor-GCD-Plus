@@ -1,0 +1,122 @@
+/* Stage Editor — panel dentro del menú (port de GamerCB2026/PruebaCEGCD,
+   adaptado a la paleta neutra de este fork: un solo acento, esquinas cuadradas,
+   sin degradados decorativos) */
+
+/* Solo tiñe el área de contenido, no toda la app */
+body.stage-editor-mode #panel-stage.content-panel {
+  background: #14121d;
+  color: #e8e6f0;
+}
+
+body.stage-editor-mode #panel-stage .panel-title {
+  color: #c9c2d5;
+}
+
+body.stage-editor-mode #panel-stage .panel-subtitle {
+  color: #8d8a99;
+}
+
+#panel-stage .stage-editor-hero {
+  max-width: 420px;
+  width: 100%;
+  margin: 12px auto 0;
+  text-align: center;
+  padding: 36px 28px;
+  border-radius: 4px;
+  background: #161421;
+  border: 1px solid #33313c;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+}
+
+#panel-stage .stage-editor-hero-icon {
+  font-size: 52px;
+  color: #8d8a99;
+  margin-bottom: 14px;
+}
+
+#panel-stage .stage-editor-hero h1 {
+  font-size: 28px;
+  font-weight: 800;
+  color: #e8e6f0;
+  margin-bottom: 10px;
+}
+
+#panel-stage .stage-editor-hero p {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #8d8a99;
+}
+
+.stage-editor-badge {
+  display: inline-block;
+  margin-top: 18px;
+  padding: 6px 14px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #fff;
+  background: #c9506a;
+}
+
+/* Botón en inicio (grid de proyectos) — legado, por si se reusa */
+.folder-card.stage-editor-entry {
+  border: 1px solid #c9506a;
+  background: #161421;
+}
+
+.folder-card.stage-editor-entry:hover {
+  border-color: #c9506a;
+  transform: translateY(-4px);
+}
+
+.folder-card.stage-editor-entry .folder-icon {
+  color: #c9506a;
+}
+
+.folder-card.stage-editor-entry h3 {
+  color: #cccbdf;
+  white-space: normal;
+  line-height: 1.25;
+  font-size: 13px;
+}
+
+.folder-card.stage-editor-entry .stage-entry-sub {
+  margin-top: 6px;
+  font-size: 10px;
+  color: #8d8a99;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+/* Botón sidebar: Proyectos Stage Editor */
+.tab-btn-stage {
+  color: #cccbdf !important;
+  border: 1px solid #33313c;
+  background: #161421;
+}
+
+.tab-btn-stage:hover {
+  background: #231f33 !important;
+  color: #fff !important;
+}
+
+.tab-btn-stage.active {
+  background: #231f33 !important;
+  color: #fff !important;
+  border-color: #c9506a;
+  box-shadow: inset 3px 0 0 #c9506a;
+}
+
+.tab-btn-stage .menu-icon-fa {
+  width: 22px;
+  text-align: center;
+  font-size: 16px;
+  color: #8d8a99;
+}
+
+.tab-btn-stage.active .menu-icon-fa {
+  color: #c9506a;
+}
