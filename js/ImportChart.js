@@ -32,6 +32,11 @@ function importarChartDesdeMenu(formato) {
 		document.getElementById("import-codename-input")?.click();
 		return;
 	}
+	if (formato === "psych") {
+		cerrarModalImportacion();
+		document.getElementById("import-psych-input")?.click();
+		return;
+	}
 	alert("La importación de " + formato + " aún no está implementada.\n\nPor ahora solo está disponible la importación de charts de Codename Engine.");
 }
 
@@ -195,6 +200,107 @@ function convertirChartCodename(data) {
 		album: "volume1",
 		difficulty: 3,
 		stage: data.stage || "stage",
+		totalRows: Math.max(16, Math.ceil((maxRow + 16) / 16) * 16),
+		notes: notes,
+		events: events,
+	};
+}
+
+// Convierte un chart nativo de Psych Engine (formato psych_v1: sections + events)
+// al formato interno del editor {notes: {"row-col": {len}}, events: {"row": {...}}}.
+function convertirChartPsych(data) {
+	if (!data || typeof data !== "object") return null;
+	// Los charts se pueden exportar envueltos ("song": {...}) o con el objeto directo.
+	const root = data.song && typeof data.song === "object" ? data.song : data;
+	if (!root || typeof root !== "object" || !Array.isArray(root.notes) || !root.notes.length || !root.notes[0] || !Array.isArray(root.notes[0].sectionNotes)) return null;
+
+	const bpmRaw = parseFloat(root.bpm);
+	const bpm = Number.isFinite(bpmRaw) && bpmRaw > 0 ? bpmRaw : 160;
+	const stepMs = 60000 / bpm / 4;
+	// Charts psych_v1 traen lanes absolutas (0-3 jugador, 4-7 oponente). Los
+	// charts viejos (0.1-0.3 / Week 7 / vanilla) traen lanes relativas a la
+	// seccion: replicamos Song.convert de Psych para normalizarlas.
+	const esChartViejo = !String(root.format || "").startsWith("psych_v1");
+	const notes = {};
+	let maxRow = 0;
+
+	root.notes.forEach((section) => {
+		if (!section || !Array.isArray(section.sectionNotes)) return;
+		// mustHitSection define de que lado de la seccion son las lanes 0-3.
+		const mustHit = section.mustHitSection !== false;
+		section.sectionNotes.forEach((note) => {
+			if (!Array.isArray(note) && (typeof note !== "object" || note === null)) return;
+			const time = parseFloat(Array.isArray(note) ? note[0] : note.time);
+			let lane = parseInt(Array.isArray(note) ? note[1] : note.noteData, 10);
+			const sustain = parseFloat(Array.isArray(note) ? note[2] : note.sustainLength) || 0;
+			if (!Number.isFinite(time)) return;
+			// Lane negativa en charts viejos = evento embebido (Psych lo mueve a
+			// song.events en su convert()). Se procesa abajo con los demas eventos.
+			if (lane < 0) return;
+			// Charts viejos: lanes 0-3 van al lado indicado por mustHitSection
+			// (repl. de Song.convert de Psych); psych_v1 ya es absoluto.
+			if (lane > 3) lane = 4 + (lane % 4);
+			else if (esChartViejo && !mustHit) lane += 4;
+			if (lane < 0 || lane > 7) return;
+			maxRow = Math.max(maxRow, agregarNotaImportada(notes, time, lane, sustain, stepMs));
+		});
+	});
+	if (Object.keys(notes).length === 0) return null;
+
+	// Psych: events = [time, [[nombre, value1, value2], ...]]. Solo se representa
+	// el evento de camara; el resto queda disponible en currentChartData.events.
+	const charToTarget = ["opponent", "player", "gf"];
+	const events = {};
+	const procesarEvento = (tiempo, nombre, v1, v2) => {
+		if (!Number.isFinite(tiempo)) return;
+		const fila = Math.max(0, Math.round(tiempo / stepMs));
+		const nombreNorm = String(nombre || "").trim().toLowerCase();
+		if (nombreNorm === "focus camera" || nombreNorm === "focus camera (psych)") {
+			events[fila] = {
+				type: "Focus Camera",
+				t: tiempo,
+				target: charToTarget[parseInt(v1, 10)] || "opponent",
+				duration: Number(v2) || 4,
+				offsetX: 0,
+				offsetY: 0,
+				effect: "CLASSIC"
+			};
+		}
+	};
+	(Array.isArray(root.events) ? root.events : []).forEach((evento) => {
+		if (!Array.isArray(evento)) return;
+		const tiempo = parseFloat(evento[0]);
+		const subeventos = Array.isArray(evento[1]) ? evento[1] : [];
+		subeventos.forEach((sub) => {
+			if (!Array.isArray(sub)) return;
+			procesarEvento(tiempo, sub[0], sub[1], sub[2]);
+		});
+	});
+	// Charts 0.1-0.3: eventos embebidos como notas con lane negativa.
+	root.notes.forEach((section) => {
+		if (!section || !Array.isArray(section.sectionNotes)) return;
+		section.sectionNotes.forEach((note) => {
+			if (!Array.isArray(note)) return;
+			const lane = parseInt(note[1], 10);
+			if (!Number.isFinite(lane) || lane >= 0) return;
+			procesarEvento(parseFloat(note[0]), note[2], note[3], note[4]);
+		});
+	});
+
+	return {
+		id: "chart_" + Date.now(),
+		songName: root.song || root.songName || "Imported Chart",
+		bpm: bpm,
+		bpmExplicito: Number.isFinite(bpmRaw) && bpmRaw > 0,
+		author: "",
+		charter: "",
+		speed: parseFloat(root.speed) || 1,
+		player: root.player1 || "bf",
+		opponent: root.player2 || "dad",
+		girlfriend: root.gfVersion || "gf",
+		album: "volume1",
+		difficulty: 3,
+		stage: root.stage || "stage",
 		totalRows: Math.max(16, Math.ceil((maxRow + 16) / 16) * 16),
 		notes: notes,
 		events: events,
@@ -617,6 +723,26 @@ function procesarArchivoCodename(input) {
 			const chart = convertirChartCodename(data) || convertirChartExterno(data);
 			if (!chart || !abrirChartEnEditor(chart)) {
 				alert("Este archivo no parece un chart.json de Codename Engine (se espera un JSON con \"strumLines\").");
+			}
+		} catch (err) {
+			console.error(err);
+			alert("Error al leer el archivo JSON del chart.");
+		}
+	};
+	reader.readAsText(file);
+	input.value = "";
+}
+
+function procesarArchivoPsych(input) {
+	const file = input.files[0];
+	if (!file) return;
+	const reader = new FileReader();
+	reader.onload = function (e) {
+		try {
+			const data = JSON.parse(e.target.result);
+			const chart = convertirChartPsych(data) || convertirChartExterno(data);
+			if (!chart || !abrirChartEnEditor(chart)) {
+				alert("Este archivo no parece un chart de Psych Engine (se espera un JSON con \"notes\" por secciones y \"sectionNotes\").");
 			}
 		} catch (err) {
 			console.error(err);
