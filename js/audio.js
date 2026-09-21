@@ -73,10 +73,14 @@ function actualizarWaveforms(exactTime = null) {
     // Si la pantalla no tiene tamaño aún, abortamos
     if (workspace.clientHeight === 0) return;
     
-    // SOLUCIÓN DEFINITIVA: Forzar tamaño dinámicamente reconecta el Canvas a la pantalla.
+    // Tamaño CSS EXPLICITO identico al bitmap: con height:100% del CSS el
+    // navegador estira el bitmap (clientHeight del workspace, sin scrollbar)
+    // al alto de la columna (con scrollbar) y el waveform se desfasa
+    // progresivamente respecto a la grilla. Igual que el fix del canvas de notas.
     canvas.width = 360 * globalZoomFactor;
     canvas.height = workspace.clientHeight;
     canvas.style.width = (360 * globalZoomFactor) + "px";
+    canvas.style.height = workspace.clientHeight + "px";
     
     const ctx = canvas.getContext('2d');
     const W = canvas.width, H = canvas.height;

@@ -8,6 +8,7 @@ function inicializarWorkspace() {
     let chequearAltura = setInterval(() => {
         if (document.getElementById("scroll-workspace").clientHeight > 0 || intentos > 15) {
             clearInterval(chequearAltura); 
+            asegurarObservadorAltura();
             actualizarAlturaScroll();
             reposicionarScroll();
             aplicarMuteEstadosUI();
@@ -153,6 +154,11 @@ function actualizarAlturaScroll() {
     let inner = document.getElementById("scroll-inner");
     inner.style.height = scaledGridHeight + H + "px";
     
+    // La grilla se ancla a la MITAD EXACTA de la altura actual del workspace:
+    // asi la fila 0 queda en la linea de playback (el receptor) cuando el
+    // scroll esta arriba del todo, igual que el charter de Codename donde el
+    // tiempo 0 arranca alineado a los receptores. Si la altura cambia y esto
+    // no se re-ejecuta, la linea (50% CSS) y la grilla quedan desfasadas.
     const grilla = document.getElementById("grilla-dinamica-container");
     grilla.style.position = "absolute";
     grilla.style.top = H / 2 + "px";
@@ -221,6 +227,44 @@ function generarEstructuraGrilla(filas) {
             cont.addEventListener("click", delegarClickGrilla);
         }
     }
+}
+
+// El layout vertical se ancla a la altura DEL MOMENTO (la linea de playback
+// vive al 50% del viewport): en movil la barra de url del navegador aparece y
+// desaparece y cambia la altura del workspace constantemente. Sin este
+// observador, la grilla y el waveform quedaban congelados con la altura vieja
+// y todo se veia desfasado respecto a la linea. Con el observer, cualquier
+// cambio de altura re-ancla grilla y waveform a la mitad exacta del viewport.
+let observadorAlturaWorkspace = null;
+// Re-ancla la geometria vertical a la mitad de la altura dada (la linea de
+// playback vive al 50% del viewport). Aislada en una funcion para poder
+// llamarla tanto del ResizeObserver como de verificaciones manuales.
+function reanclarGeometriaVertical(H) {
+    if (!currentChartData || !(H > 0)) return false;
+    const grilla = document.getElementById("grilla-dinamica-container");
+    if (grilla) grilla.style.top = H / 2 + "px";
+    const inner = document.getElementById("scroll-inner");
+    if (inner) {
+        const z = globalZoomFactor || 1;
+        inner.style.height = currentChartData.totalRows * alturaCelda * z + H + "px";
+    }
+    actualizarWaveforms();
+    programarRenderNotas();
+    return true;
+}
+function asegurarObservadorAltura() {
+    if (observadorAlturaWorkspace || typeof ResizeObserver === "undefined") return;
+    const workspace = document.getElementById("scroll-workspace");
+    if (!workspace) return;
+    observadorAlturaWorkspace = new ResizeObserver(() => {
+        const H = workspace.clientHeight;
+        // Solo re-accionar a cambios de ALTURA (los de ancho no afectan el eje Y).
+        if (Math.abs(H - (observadorAlturaWorkspace._ultimaH || 0)) < 1) return;
+        observadorAlturaWorkspace._ultimaH = H;
+        reanclarGeometriaVertical(H);
+    });
+    observadorAlturaWorkspace.observe(workspace);
+    observadorAlturaWorkspace._ultimaH = workspace.clientHeight;
 }
 
 // Posición visual de una columna lógica: el layout es [oponente 4-7][jugador 0-3][eventos].
@@ -526,7 +570,7 @@ function dibujarNotas(scrollTopPx, pos) {
             // exactos el cuerpo arranca en el y real de la nota (el canvas
             // recorta lo que quede fuera); el borde inferior sigue siendo de fila.
             const filaBottom = Math.min(n.fila + n.len, hasta + 1);
-            const cuerpoTop = yDeNota(n) + 22 * z;
+            const cuerpoTop = yDeNota(n) + 18 * z;
             const cuerpoBottom = yDeFila(filaBottom);
             if (cuerpoBottom > cuerpoTop) {
                 ctx.fillStyle = COLORES_NOTA[n.col % 4];
@@ -536,7 +580,12 @@ function dibujarNotas(scrollTopPx, pos) {
             }
         }
         const x = xDeCol(n.col, 2.5);
-        const y = yDeNota(n) + 2.5 * z;
+        // Estilo Codename: la cabeza se CENTRA sobre la linea de su tiempo
+        // (el borde superior de la fila, o su ms exacto si viene de import),
+        // no dentro de la celda. Asi, cuando la nota cruza la linea de
+        // playback/receptor, la flecha esta exactamente sobre ella — el
+        // hitsound, el audio y lo visual coinciden en el mismo instante.
+        const y = yDeNota(n) - 20 * z;
         const tam = 40 * z;
         const img = imagenNota(n.col);
         if (img.complete && img.naturalWidth) {
