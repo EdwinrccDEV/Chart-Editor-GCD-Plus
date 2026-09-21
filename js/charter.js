@@ -392,7 +392,7 @@ function asegurarCanvasNotas() {
     if (!notasCanvas) {
         notasCanvas = document.createElement("canvas");
         notasCanvas.id = "notas-canvas";
-        notasCanvas.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;z-index:3;pointer-events:none;";
+        notasCanvas.style.cssText = "position:absolute;top:0;left:0;z-index:3;pointer-events:none;";
         columna.appendChild(notasCanvas);
         notasCanvasCtx = notasCanvas.getContext("2d");
     }
@@ -400,6 +400,14 @@ function asegurarCanvasNotas() {
     if (w && h && (notasCanvas.width !== w * ESCALA_CALIDAD || notasCanvas.height !== h * ESCALA_CALIDAD)) {
         notasCanvas.width = w * ESCALA_CALIDAD;
         notasCanvas.height = h * ESCALA_CALIDAD;
+    }
+    // El canvas debe ocupar EXACTAMENTE el box del workspace (no "100%" de la
+    // columna): con scrollbar clasica (Windows) el workspace es mas angosto que
+    // la columna y estirar el bitmap al 100% desalineaba las notas de forma
+    // progresiva hacia la derecha. Tamano explicito = mapeo 1:1 bitmap/pantalla.
+    if (w && h && (notasCanvas.style.width !== w + "px" || notasCanvas.style.height !== h + "px")) {
+        notasCanvas.style.width = w + "px";
+        notasCanvas.style.height = h + "px";
     }
 }
 
