@@ -749,7 +749,11 @@ function hayNotaNuevaEnRango(t0Seg, t1Seg) {
 
     const stepMs = (60 / (currentChartData.bpm || 120)) / 4 * 1000;
     const fila0 = Math.max(0, Math.floor((t0Seg * 1000) / stepMs));
-    const fila1 = Math.ceil((t1Seg * 1000) / stepMs);
+    // Piso, no techo: con ceil la nota cumplía "fila <= fila1" hasta un step
+    // ANTES de que currentTime alcanzara su tiempo (el hit sonaba en la línea
+    // roja con la nota todavía abajo). Con floor el hit dispara exactamente
+    // cuando el audio llega al tiempo de la nota (±1 frame).
+    const fila1 = Math.floor((t1Seg * 1000) / stepMs);
 
     let i = limiteInferiorFila(fila0);
     for (; i < notasIdx.length && notasIdx[i].fila <= fila1; i++) {
