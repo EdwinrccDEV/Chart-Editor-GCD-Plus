@@ -563,10 +563,14 @@ function convertirNotasVSlice(notas, stepDuration) {
     return Object.entries(notas || {}).map(([key, nota]) => {
         const [row, col] = key.split("-").map((valor) => parseInt(valor, 10));
         if (!Number.isInteger(row) || !Number.isInteger(col)) return null;
+        // Respeta el ms exacto de las notas importadas (t) si existe: así el
+        // export no re-cuantiza notas fuera de la grilla.
+        const tExacto = typeof nota?.t === "number" ? nota.t : row * stepDuration * 1000;
+        const lExacto = typeof nota?.s === "number" ? nota.s : (parseInt(nota?.len, 10) || 0) * stepDuration * 1000;
         return {
-            "t": row * stepDuration * 1000,
+            "t": tExacto,
             "d": col,
-            "l": (parseInt(nota?.len, 10) || 0) * stepDuration * 1000,
+            "l": lExacto,
             "p": []
         };
     }).filter(Boolean).sort((a, b) => a.t - b.t);

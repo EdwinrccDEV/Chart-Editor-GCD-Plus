@@ -91,8 +91,14 @@ function agregarNotaImportada(notes, timeMs, lane, sustainMs, stepMs) {
 	const col = laneValue;
 
 	const row = Math.max(0, Math.round(time / stepMs));
-	const len = Math.max(0, Math.round((parseFloat(sustainMs) || 0) / stepMs));
-	notes[`${row}-${col}`] = { len: len };
+	const sustain = Math.max(0, parseFloat(sustainMs) || 0);
+	const len = Math.round(sustain / stepMs);
+	// Preserva el tiempo y sustain EXACTOS en ms (Codename permite notas fuera
+	// de la grilla). Sin esto, el import cuantiza a la fila mas cercana (ej.
+	// 2400ms con step de 208ms cae en fila 12 -> 2500ms) y suena desfasada.
+	const nota = { len: len, t: time };
+	if (sustain > 0) nota.s = sustain;
+	notes[`${row}-${col}`] = nota;
 	return row + len;
 }
 

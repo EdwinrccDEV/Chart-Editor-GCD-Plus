@@ -350,7 +350,7 @@ function construirIndiceNotas() {
             const fila = parseInt(parts[0], 10);
             const col = parseInt(parts[1], 10);
             if (Number.isNaN(fila) || Number.isNaN(col)) continue;
-            notasIdx.push({ fila: fila, col: col, len: Math.max(0, notes[key].len | 0) });
+            notasIdx.push({ fila: fila, col: col, len: Math.max(0, notes[key].len | 0), tMs: typeof notes[key].t === "number" ? notes[key].t : null });
         }
         notasIdx.sort((a, b) => a.fila - b.fila || a.col - b.col);
     }
@@ -473,7 +473,11 @@ function dibujarNotas(scrollTopPx, pos) {
 
     const offsetX = pos.offsetX;
     const offsetY = pos.offsetY;
+    const stepMs = (60 / (currentChartData.bpm || 120)) / 4 * 1000;
     const yDeFila = (fila) => offsetY + fila * alturaCelda * z;
+    // Las notas importadas pueden llevar ms exactos (fuera de grilla): se
+    // dibujan en su tiempo real, no en la fila cuantizada.
+    const yDeNota = (n) => n.tMs != null ? offsetY + (n.tMs / stepMs) * alturaCelda * z : yDeFila(n.fila);
     const xDeCol = (col, offset) => offsetX + posVisualDeCol(col) * 45 * z + offset * z;
 
     let i = limiteInferiorFila(desde);
@@ -484,10 +488,11 @@ function dibujarNotas(scrollTopPx, pos) {
     for (; i < notasIdx.length && notasIdx[i].fila <= hasta; i++) {
         const n = notasIdx[i];
         if (n.len > 0) {
-            // Solo la parte del sustain dentro del viewport se dibuja.
-            const filaTop = Math.max(n.fila, desde);
+            // Solo la parte del sustain dentro del viewport se dibuja. Con ms
+            // exactos el cuerpo arranca en el y real de la nota (el canvas
+            // recorta lo que quede fuera); el borde inferior sigue siendo de fila.
             const filaBottom = Math.min(n.fila + n.len, hasta + 1);
-            const cuerpoTop = yDeFila(filaTop) + 22 * z;
+            const cuerpoTop = yDeNota(n) + 22 * z;
             const cuerpoBottom = yDeFila(filaBottom);
             if (cuerpoBottom > cuerpoTop) {
                 ctx.fillStyle = COLORES_NOTA[n.col % 4];
@@ -497,7 +502,7 @@ function dibujarNotas(scrollTopPx, pos) {
             }
         }
         const x = xDeCol(n.col, 2.5);
-        const y = yDeFila(n.fila) + 2.5 * z;
+        const y = yDeNota(n) + 2.5 * z;
         const tam = 40 * z;
         const img = imagenNota(n.col);
         if (img.complete && img.naturalWidth) {
@@ -698,7 +703,7 @@ function togglePlayPause() {
         const t = audioInst.currentTime;
         sincronizarPistasAudio(t);
         lastHitTime = t - 0.001;
-        ultimaFilaSonada = -1; // reinicia la deduplicación de hitsounds
+        hitsSonados.clear(); // reinicia la deduplicación de hitsounds
         const reproducciones = [audioInst, audioVoice1, audioVoice2]
             .filter(Boolean)
             .map((audio) => audio.play());
@@ -733,36 +738,43 @@ function reposicionarScroll() {
     actualizarWaveforms(tiempoActual); 
 }
 
-// Hitsounds: devuelve la fila de la PRIMERA nota cuyo hit aún no fue sonado
-// dentro del rango del frame, o -1 si no hay ninguna nueva. Antes bastaba con
-// que hubiera CUALQUIER nota en el rango: como la ventana [lastHitTime,
-// tiempoActual] se solapa entre frames, la misma nota disparaba el sonido
-// varias veces seguidas. ultimaFilaSonada marca hasta dónde ya sonó.
-let ultimaFilaSonada = -1;
+// Hitsounds: devuelve la clave ("fila-col") de la PRIMERA nota cuyo hit aún no
+// fue sonado dentro de la ventana exacta del frame (t0, t1], o null si no hay.
+// El disparo compara contra el ms EXACTO de la nota (n.tMs, preservado del
+// import; las notas fuera de grilla suenan en su tiempo real) o contra su fila
+// (notas colocadas a mano, siempre en grilla). La dedup es por clave de nota y
+// no por fila: dos notas fuera de grilla en filas vecinas pueden cruzar orden.
+let hitsSonados = new Set();
 
 function hayNotaNuevaEnRango(t0Seg, t1Seg) {
     if (!notasIdx || notasDirty) construirIndiceNotas();
-    if (!notasIdx.length) return -1;
+    if (!notasIdx.length) return null;
     const hitP = document.getElementById("hit-player")?.checked;
     const hitE = document.getElementById("hit-enemy")?.checked;
-    if (!hitP && !hitE) return -1;
+    if (!hitP && !hitE) return null;
 
     const stepMs = (60 / (currentChartData.bpm || 120)) / 4 * 1000;
-    const fila0 = Math.max(0, Math.floor((t0Seg * 1000) / stepMs));
-    // Piso, no techo: con ceil la nota cumplía "fila <= fila1" hasta un step
-    // ANTES de que currentTime alcanzara su tiempo (el hit sonaba en la línea
-    // roja con la nota todavía abajo). Con floor el hit dispara exactamente
-    // cuando el audio llega al tiempo de la nota (±1 frame).
-    const fila1 = Math.floor((t1Seg * 1000) / stepMs);
+    const t0Ms = t0Seg * 1000;
+    const t1Ms = t1Seg * 1000;
+    // Escaneo por filas ±1: una nota fuera de grilla vive en la fila vecina a
+    // su tiempo real. El filtro final es la ventana exacta del frame.
+    const fila0 = Math.max(0, Math.floor(t0Ms / stepMs) - 1);
+    const fila1 = Math.ceil(t1Ms / stepMs) + 1;
 
     let i = limiteInferiorFila(fila0);
     for (; i < notasIdx.length && notasIdx[i].fila <= fila1; i++) {
         const n = notasIdx[i];
-        if (n.fila <= ultimaFilaSonada) continue; // ya sonó en un frame anterior
+        const clave = n.fila + "-" + n.col;
+        if (hitsSonados.has(clave)) continue; // ya sonó desde el último play/seek
         const col = n.col;
-        if ((col < 4 && hitP) || (col >= 4 && hitE)) return n.fila;
+        if (!((col < 4 && hitP) || (col >= 4 && hitE))) continue;
+        // Piso, no techo: el hit dispara cuando el audio ALCANZA el tiempo de
+        // la nota, nunca antes (antes con ceil sonaba hasta un step temprano).
+        const hitMs = n.tMs != null ? n.tMs : n.fila * stepMs;
+        if (hitMs <= t0Ms || hitMs > t1Ms) continue;
+        return clave;
     }
-    return -1;
+    return null;
 }
 
 function actualizarPlaybackFiel() {
@@ -775,10 +787,10 @@ function actualizarPlaybackFiel() {
             const t0 = lastHitTime + latencia;
             const t1 = tiempoActual + latencia;
             if (t1 > t0) {
-                const filaHit = hayNotaNuevaEnRango(t0, t1);
-                if (filaHit !== -1) {
+                const claveHit = hayNotaNuevaEnRango(t0, t1);
+                if (claveHit) {
                     playHitsound();
-                    ultimaFilaSonada = filaHit;
+                    hitsSonados.add(claveHit);
                 }
             }
         }
@@ -819,7 +831,7 @@ function manejarScrollManual() {
     if (audioVoice2) audioVoice2.currentTime = nuevoTiempo;
     
     lastHitTime = nuevoTiempo; 
-    ultimaFilaSonada = -1; // al hacer seek, todo lo anterior vuelve a estar "sin sonar"
+    hitsSonados.clear(); // al hacer seek, todo vuelve a estar "sin sonar"
     actualizarContadorDeTiempo(nuevoTiempo);
     programarRenderNotas();
     
