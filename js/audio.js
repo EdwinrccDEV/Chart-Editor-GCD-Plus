@@ -140,12 +140,15 @@ function playHitsound() {
     if (hitSoundBuffer) {
         const source = audioCtx.createBufferSource();
         source.buffer = hitSoundBuffer;
-        source.connect(audioCtx.destination);
+        const gain = audioCtx.createGain();
+        gain.gain.value = volumenHitsound;
+        source.connect(gain);
+        gain.connect(audioCtx.destination);
         source.start(0);
     } else if (hitSoundAudio) {
         try {
             const a = hitSoundAudio.cloneNode();
-            a.volume = 1;
+            a.volume = volumenHitsound;
             a.play().catch(e => synthHitsound());
         } catch (e) { synthHitsound(); }
     } else {
@@ -161,16 +164,30 @@ function synthHitsound() {
     osc.type = "sine";
     osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.05);
-    gain.gain.setValueAtTime(0.6, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.6 * volumenHitsound, audioCtx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
     osc.start();
     osc.stop(audioCtx.currentTime + 0.05);
 }
 
 function actualizarVolumenCancion(vol) {
+    // Solo el instrumental: las voces tienen su propio slider (volumen relativo
+    // en actualizarVolumenVocales) y el mute por pista usa .muted.
     if (audioInst) audioInst.volume = vol;
-    if (audioVoice1) audioVoice1.volume = vol;
-    if (audioVoice2) audioVoice2.volume = vol;
+}
+
+// Volumen relativo de las dos pistas de voces (v1 = player, v2 = enemy).
+// Se conserva para re-aplicarlo cuando se cargue audio nuevo.
+let volumenVocales = 1;
+
+function actualizarVolumenVocales(vol) {
+    volumenVocales = parseFloat(vol) || 0;
+    if (audioVoice1) audioVoice1.volume = volumenVocales;
+    if (audioVoice2) audioVoice2.volume = volumenVocales;
+}
+
+function actualizarVolumenHitsound(vol) {
+    volumenHitsound = parseFloat(vol) || 0;
 }
 
 function toggleMute(track, isMuted) {
@@ -188,4 +205,6 @@ function aplicarMuteEstadosUI() {
     if (audioVoice2 && muteEnemy) audioVoice2.muted = muteEnemy.checked;
     const sliderVolumen = document.getElementById("song-volume-slider");
     if (sliderVolumen) actualizarVolumenCancion(sliderVolumen.value);
+    const sliderVocales = document.getElementById("vocals-volume-slider");
+    if (sliderVocales) actualizarVolumenVocales(sliderVocales.value);
 }

@@ -25,3 +25,5 @@ let dificultadActiva = "normal";
 let lastHitTime = -1;
 let hitSoundBuffer = null;
 let hitSoundAudio = null;
+// Volumen del hitsound (slider), aplicado a buffer/HTMLAudio/synth.
+let volumenHitsound = 1;
