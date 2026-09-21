@@ -408,15 +408,41 @@ function asegurarCanvasNotas() {
 // largos (scroll-inner puede medir cientos de miles de px).
 function medirPosicionNotas() {
     if (!notasCanvas) return null;
+    const canvasRect = notasCanvas.getBoundingClientRect();
+    const z = globalZoomFactor || 1;
+    // La verdad absoluta son las CELDAS DOM (lo que el usuario ve y clickea),
+    // no el rect del contenedor: con translateX(-50%) + scale(z) el bounding
+    // box del contenedor NO coincide con el borde de la columna visual 0 y
+    // las notas quedaban desalineadas respecto a la grilla. Se mide desde una
+    // celda real cercana al centro del canvas y se extrapola linealmente.
+    sincronizarCeldasVisibles();
+    const H = notasCanvas.height / ESCALA_CALIDAD;
+    let mejor = null, mejorDist = Infinity;
+    for (const key in grillaDOM.celdas) {
+        const cell = grillaDOM.celdas[key];
+        if (!cell.isConnected) continue;
+        const r = cell.getBoundingClientRect();
+        const dist = Math.abs(r.top + r.height / 2 - (canvasRect.top + H / 2));
+        if (dist < mejorDist) {
+            mejorDist = dist;
+            mejor = { cell: r, f: cell.dataset.f | 0, c: cell.dataset.c | 0 };
+        }
+    }
+    if (mejor) {
+        return {
+            offsetX: mejor.cell.left - canvasRect.left - posVisualDeCol(mejor.c) * 45 * z,
+            offsetY: mejor.cell.top - canvasRect.top - mejor.f * alturaCelda * z,
+            wsH: H
+        };
+    }
+    // Respaldo (sin celdas): geometría teórica del contenedor.
     const cont = document.getElementById("grilla-dinamica-container");
     if (!cont) return null;
     const contRect = cont.getBoundingClientRect();
-    const canvasRect = notasCanvas.getBoundingClientRect();
-    const z = globalZoomFactor || 1;
     return {
-        offsetX: contRect.left - canvasRect.left + 2 * z, // +2 = borde del contenedor
+        offsetX: contRect.left - canvasRect.left,
         offsetY: contRect.top - canvasRect.top,
-        wsH: notasCanvas.height / ESCALA_CALIDAD
+        wsH: H
     };
 }
 
