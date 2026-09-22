@@ -18,6 +18,7 @@ async function cargarHitsound() {
 async function decodeAudioFile(file) {
     if (!file) return null;
     try {
+        
         // CORRECCIÓN: Eliminamos el 'audioCtx.resume()' de aquí.
         // No hace falta despertar el contexto solo para matemáticas internas,
         // lo que evita bloqueos del navegador si el usuario aún no hace clic.
