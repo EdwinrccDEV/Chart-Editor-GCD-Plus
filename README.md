@@ -4,6 +4,7 @@
 
 > [!WARNING]
 > **Unofficial Fork**
+> 
 > This is an unofficial, community-driven fork of
 > [Chart Editor GCD](https://github.com/GamerCB2026/Chart-Editor-GCD),
 > originally created by **GAMERCB**.
